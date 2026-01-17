@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 export function Hero() {
   return (
@@ -17,7 +17,9 @@ export function Hero() {
         {/* Eyebrow Text */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border/50 mb-8">
           <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-          <span className="text-sm text-muted-foreground">The Future of Private Communication</span>
+          <span className="text-sm text-muted-foreground">
+            The Future of Private Communication
+          </span>
         </div>
 
         {/* Main Heading */}
@@ -29,9 +31,22 @@ export function Hero() {
 
         {/* Subheading */}
         <p className="text-xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-          AnonChat redefines anonymous social networking with secure, identity-free communication in
-          censorship-resistant decentralized communities. Your voice matters—without compromise.
+          AnonChat redefines anonymous social networking with secure,
+          identity-free communication in censorship-resistant decentralized
+          communities. Your voice matters—without compromise.
         </p>
+        {/* Powered by Stellar */}
+        <div className="mb-6 flex justify-center">
+          <div className="relative px-6 py-2 rounded-full border border-border/50 bg-card/60 backdrop-blur-sm">
+            <span className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-accent opacity-30 blur animate-pulse" />
+            <span className="relative text-sm font-semibold tracking-wide text-muted-foreground">
+              ⚡ Powered by{" "}
+              <span className="gradient-text font-bold">
+                Stellar Blockchain
+              </span>
+            </span>
+          </div>
+        </div>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -51,7 +66,9 @@ export function Hero() {
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold gradient-text">∞</p>
-            <p className="text-sm text-muted-foreground mt-2">Decentralized Nodes</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Decentralized Nodes
+            </p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold gradient-text">100%</p>
@@ -60,5 +77,5 @@ export function Hero() {
         </div>
       </div>
     </section>
-  )
+  );
 }

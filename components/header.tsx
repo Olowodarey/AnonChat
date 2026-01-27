@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { useState } from "react"
 import ConnectWallet from "./wallet-connector"
+import { ThemeToggle } from "./theme-toggle"
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -45,6 +46,7 @@ export function Header() {
 
         {/* CTA Buttons */}
         <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           {/* Connect Wallet button  */}
           <div
             className="w-full cursor-pointer px-4 py-2 text-sm rounded-lg  text-primary-foreground font-semibold"
@@ -86,6 +88,9 @@ export function Header() {
             </Link>
 
             <div className="pt-3 border-t border-border/50 space-y-2">
+              <div className="flex items-center justify-center">
+                <ThemeToggle />
+              </div>
               {/* Connect Wallet button  */}
               <div className="w-full cursor-pointer px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold">
                 <ConnectWallet />

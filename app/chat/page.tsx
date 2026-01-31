@@ -11,7 +11,9 @@ import {
   Search,
   MessageCircle,
   Send,
+  Check,
   CheckCheck,
+  Clock,
   Wallet,
   Share2,
   Phone,
@@ -36,6 +38,7 @@ type ChatMessage = {
   time: string
   delivered: boolean
   read: boolean
+  status?: "sending" | "sent" | "delivered" | "read"
 }
 
 export default function ChatPage() {
@@ -108,8 +111,36 @@ export default function ChatPage() {
           author: "me",
           text: "Love how clean this feels on desktop.",
           time: "14:22",
+          delivered: false,
+          read: false,
+          status: "sending",
+        },
+        {
+          id: "m2b",
+          author: "me",
+          text: "Just sent another update.",
+          time: "14:23",
+          delivered: false,
+          read: false,
+          status: "sent",
+        },
+        {
+          id: "m2c",
+          author: "me",
+          text: "Let me know once it lands.",
+          time: "14:24",
+          delivered: true,
+          read: false,
+          status: "delivered",
+        },
+        {
+          id: "m2d",
+          author: "me",
+          text: "Seen it?",
+          time: "14:24",
           delivered: true,
           read: true,
+          status: "read",
         },
         {
           id: "m3",
@@ -143,6 +174,13 @@ export default function ChatPage() {
     }),
     [],
   )
+
+  const getDeliveryStatus = (message: ChatMessage) => {
+    if (message.status) return message.status
+    if (message.read) return "read"
+    if (message.delivered) return "delivered"
+    return "sent"
+  }
 
   const filteredChats = useMemo(() => {
     if (!query.trim()) return chats
@@ -220,7 +258,7 @@ export default function ChatPage() {
             {/* Search + chats header */}
             <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-[#11111a]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-semibold tracking-wide uppercase">
+                <span className="font-semibold tracking-wide uppercase text-foreground">
                   Messages
                 </span>
                 <MessageCircle className="h-4 w-4" />
@@ -398,14 +436,47 @@ export default function ChatPage() {
                           <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground/90">
                             <span>{message.time}</span>
                             {isMine && (
-                              <CheckCheck
-                                className={cn(
-                                  "h-3 w-3",
-                                  message.read
-                                    ? "text-green-400"
-                                    : "text-muted-foreground/80",
-                                )}
-                              />
+                              <span className="inline-flex items-center gap-1">
+                                {(() => {
+                                  const status = getDeliveryStatus(message)
+                                  if (status === "sending") {
+                                    return (
+                                      <Clock className="h-3 w-3 text-muted-foreground/80 animate-pulse" />
+                                    )
+                                  }
+                                  if (status === "sent") {
+                                    return (
+                                      <Check className="h-3 w-3 text-muted-foreground/80" />
+                                    )
+                                  }
+                                  return (
+                                    <CheckCheck
+                                      className={cn(
+                                        "h-3 w-3",
+                                        status === "read"
+                                          ? "text-green-400"
+                                          : "text-muted-foreground/80",
+                                      )}
+                                    />
+                                  )
+                                })()}
+                                <span
+                                  className={cn(
+                                    "text-[10px]",
+                                    getDeliveryStatus(message) === "read"
+                                      ? "text-green-400"
+                                      : "text-muted-foreground/80",
+                                  )}
+                                >
+                                  {(() => {
+                                    const status = getDeliveryStatus(message)
+                                    if (status === "sending") return "Sending"
+                                    if (status === "sent") return "Sent"
+                                    if (status === "delivered") return "Delivered"
+                                    return "Seen"
+                                  })()}
+                                </span>
+                              </span>
                             )}
                           </div>
                         </div>

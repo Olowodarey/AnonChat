@@ -16,3 +16,23 @@
 **Commit and Submission**:
 - Make a commit with a clear message describing the title color update.
 - Submit a pull request closing the issue.
+
+## Proposed Actions 🛠️
+Here's a checklist of actions to follow for resolving this issue:
+
+**Fork and Create Branch**:
+Fork the repository and create a new branch using the issue number:
+
+```bash
+git checkout -b fix-[issue-number]
+```
+
+**Implement Changes**:
+- [ ] [Insert Code snippet if needed with a mardown todo list]
+
+**Run Tests and Commit Changes**:
+Make sure your changes don't break existing functionality and commit with a clear message:
+
+```bash
+git commit -m "Fix: [Short description of the fix]"
+```

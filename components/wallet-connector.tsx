@@ -48,13 +48,13 @@ export default function ConnectWallet() {
       {!loading && publicKey && (
         <div className="flex gap-5">
           <div
-            className="ellipsis bg-gradient-to-r from-primary to-accent p-2 rounded-2xl"
+            className="ellipsis bg-linear-to-r from-primary to-accent p-2 rounded-2xl"
             title={publicKey}
           >
             {publicKey.slice(0, 4)}...${publicKey.slice(-4)}
           </div>
           <button
-            className="bg-gradient-to-r from-primary/50 to-accent/70 p-2 rounded-xl"
+            className="bg-linear-to-r from-primary/50 to-accent/70 p-2 rounded-xl"
             onClick={() => disconnect(showDisconnected)}
           >
             Disconnect
@@ -66,7 +66,7 @@ export default function ConnectWallet() {
         <>
           <button
             onClick={() => connect(showConnected)}
-            className="bg-gradient-to-r from-primary to-accent p-2 rounded-2xl px-8"
+            className="bg-linear-to-r from-primary to-accent p-2 rounded-2xl px-8"
           >
             Connect
           </button>

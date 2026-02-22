@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react"
 import { useState } from "react"
 import ConnectWallet from "./wallet-connector"
 import { ThemeToggle } from "./theme-toggle"
+import { CreateGroupModal } from "./create-group-modal"
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -47,9 +48,10 @@ export function Header() {
         {/* CTA Buttons */}
         <div className="hidden md:flex items-center gap-3">
           <ThemeToggle />
+          <CreateGroupModal />
           {/* Connect Wallet button  */}
           <div
-            className="w-full cursor-pointer px-4 py-2 text-sm rounded-lg  text-primary-foreground font-semibold"
+            className="cursor-pointer px-4 py-2 text-sm rounded-lg  text-primary-foreground font-semibold"
           >
             <ConnectWallet />
           </div>
@@ -88,12 +90,16 @@ export function Header() {
             </Link>
 
             <div className="pt-3 border-t border-border/50 space-y-2">
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-between px-2">
+                <span className="text-sm text-muted-foreground font-medium">Theme</span>
                 <ThemeToggle />
               </div>
-              {/* Connect Wallet button  */}
-              <div className="w-full cursor-pointer px-4 py-2 text-sm rounded-lg bg-linear-to-r from-primary to-accent text-primary-foreground font-semibold">
-                <ConnectWallet />
+              <div className="flex flex-col gap-2">
+                <CreateGroupModal />
+                {/* Connect Wallet button  */}
+                <div className="w-full cursor-pointer px-4 py-2 text-sm rounded-lg bg-linear-to-r from-primary to-accent text-primary-foreground font-semibold">
+                  <ConnectWallet />
+                </div>
               </div>
             </div>
           </div>

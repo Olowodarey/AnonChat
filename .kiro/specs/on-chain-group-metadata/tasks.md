@@ -111,7 +111,7 @@
     - _Requirements: 2.2, 2.5, 3.4, 3.5_
 
 - [ ] 6. Create Verification API Endpoint
-  - [ ] 6.1 Implement GET /api/rooms/[id]/verify endpoint
+  - [x] 6.1 Implement GET /api/rooms/[id]/verify endpoint
     - Create app/api/rooms/[id]/verify/route.ts
     - Fetch group from database
     - Retrieve transaction from Stellar if hash exists

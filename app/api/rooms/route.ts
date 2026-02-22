@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { computeHash } from "@/lib/blockchain/metadata-hash"
+import { submitMetadataHash, getTransactionExplorerUrl } from "@/lib/blockchain/stellar-service"
+import { GroupMetadata } from "@/types/blockchain"
+import { logBlockchainOperation, generateCorrelationId } from "@/lib/blockchain/logger"
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +25,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+  
   try {
     const supabase = await createClient()
 
@@ -39,7 +45,9 @@ export async function POST(request: NextRequest) {
     }
 
     const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const createdAt = new Date().toISOString()
 
+    // Insert group into database first
     const { data, error } = await supabase
       .from("rooms")
       .insert({
@@ -53,9 +61,92 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
-    return NextResponse.json({ room: data[0], success: true }, { status: 201 })
+    const room = data[0]
+
+    // Prepare metadata for blockchain submission
+    const metadata: GroupMetadata = {
+      id: room.id,
+      name: room.name,
+      description: room.description,
+      created_by: room.created_by,
+      created_at: room.created_at,
+      is_private: room.is_private,
+    }
+
+    // Compute metadata hash
+    const metadataHash = computeHash(metadata)
+
+    logBlockchainOperation("info", "Group created, initiating blockchain submission", {
+      groupId: room.id,
+      metadataHash,
+    }, correlationId)
+
+    // Submit to blockchain (non-blocking, graceful degradation)
+    let stellarTxHash: string | null = null
+    let blockchainSubmitted = false
+    let explorerUrl: string | null = null
+
+    try {
+      const result = await submitMetadataHash(room.id, metadataHash)
+      
+      if (result.success && result.transactionHash) {
+        stellarTxHash = result.transactionHash
+        blockchainSubmitted = true
+        explorerUrl = getTransactionExplorerUrl(result.transactionHash)
+
+        // Update room record with blockchain info
+        await supabase
+          .from("rooms")
+          .update({
+            stellar_tx_hash: stellarTxHash,
+            metadata_hash: metadataHash,
+            blockchain_submitted_at: new Date().toISOString(),
+          })
+          .eq("id", room.id)
+
+        logBlockchainOperation("info", "Room record updated with blockchain info", {
+          groupId: room.id,
+          transactionHash: stellarTxHash,
+        }, correlationId)
+      } else {
+        logBlockchainOperation("warn", "Blockchain submission failed, continuing without it", {
+          groupId: room.id,
+          error: result.error,
+        }, correlationId)
+      }
+    } catch (blockchainError: any) {
+      // Log error but don't fail the request
+      logBlockchainOperation("error", "Blockchain submission error", {
+        groupId: room.id,
+        error: {
+          type: blockchainError.name || "UnknownError",
+          message: blockchainError.message || "Unknown error",
+        },
+      }, correlationId)
+    }
+
+    // Return success response with blockchain info
+    return NextResponse.json({
+      room: {
+        ...room,
+        stellar_tx_hash: stellarTxHash,
+        metadata_hash: metadataHash,
+      },
+      success: true,
+      blockchain: {
+        submitted: blockchainSubmitted,
+        transactionHash: stellarTxHash || undefined,
+        explorerUrl: explorerUrl || undefined,
+      },
+    }, { status: 201 })
   } catch (error) {
     console.error("[v0] POST /api/rooms error:", error)
+    logBlockchainOperation("error", "Room creation failed", {
+      error: {
+        type: error instanceof Error ? error.name : "UnknownError",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+    }, correlationId)
     return NextResponse.json({ error: "Failed to create room" }, { status: 500 })
   }
 }

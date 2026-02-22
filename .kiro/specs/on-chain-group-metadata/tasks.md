@@ -78,7 +78,7 @@
     - _Requirements: 1.5_
 
 - [ ] 5. Enhance Group Creation API
-  - [ ] 5.1 Update POST /api/rooms endpoint
+  - [x] 5.1 Update POST /api/rooms endpoint
     - Import metadata hash service and Stellar service
     - After database insert, compute metadata hash
     - Submit hash to Stellar (with error handling)

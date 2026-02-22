@@ -62,7 +62,7 @@ export default function ChatPage() {
     return () => observer.disconnect()
   }, [])
 
-  const chats: ChatPreview[] = useMemo(
+  const initialChats: ChatPreview[] = useMemo(
     () => [
       {
         id: "1",
@@ -94,6 +94,27 @@ export default function ChatPage() {
     ],
     [],
   )
+
+  const [chats, setChats] = useState<ChatPreview[]>(initialChats)
+
+  const markRoomRead = async (roomId: string) => {
+    try {
+      await fetch("/api/rooms/mark-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      })
+    } catch (err) {
+      console.error("Failed to mark room read", err)
+    }
+  }
+
+  const handleSelectChat = async (id: string) => {
+    setSelectedChatId(id)
+    // update server and local unread count
+    await markRoomRead(id)
+    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
+  }
 
   const messagesByChat: Record<string, ChatMessage[]> = useMemo(
     () => ({
@@ -287,10 +308,10 @@ export default function ChatPage() {
                     const isSelected = chat.id === selectedChatId
                     return (
                       <li key={chat.id}>
-                        <button
-                          onClick={() => setSelectedChatId(chat.id)}
+                          <button
+                          onClick={() => void handleSelectChat(chat.id)}
                           className={cn(
-                              "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-muted/10 transition cursor-pointer",
+                            "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-muted/10 transition cursor-pointer",
                               isSelected &&
                                 "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
                             )}

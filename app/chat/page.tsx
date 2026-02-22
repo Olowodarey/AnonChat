@@ -256,7 +256,7 @@ export default function ChatPage() {
             )}
 
             {/* Search + chats header */}
-            <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-[#11111a]">
+                <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-card">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="font-semibold tracking-wide uppercase text-foreground">
                   Messages
@@ -269,7 +269,7 @@ export default function ChatPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search ENS or Wallet"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#181822] text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70 transition"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-card text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70 transition"
                 />
               </div>
             </div>
@@ -290,10 +290,10 @@ export default function ChatPage() {
                         <button
                           onClick={() => setSelectedChatId(chat.id)}
                           className={cn(
-                            "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-[#181824] transition",
-                            isSelected &&
-                              "bg-[#19192a] border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]",
-                          )}
+                              "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-muted/10 transition",
+                              isSelected &&
+                                "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
+                            )}
                         >
                           <div className="relative">
                             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white shadow-md">

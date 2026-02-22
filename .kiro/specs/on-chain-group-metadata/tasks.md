@@ -132,7 +132,7 @@
     - _Requirements: 3.1, 3.2, 3.3_
 
 - [ ] 7. Add environment configuration
-  - [ ] 7.1 Update .env.example file
+  - [x] 7.1 Update .env.example file
     - Add STELLAR_NETWORK variable
     - Add STELLAR_SOURCE_SECRET variable
     - Add STELLAR_HORIZON_URL variable
@@ -140,7 +140,7 @@
     - Document each variable
     - _Requirements: 4.1, 4.2, 4.3_
   
-  - [ ] 7.2 Create configuration documentation
+  - [x] 7.2 Create configuration documentation
     - Add setup instructions to SETUP.md
     - Document how to obtain Stellar testnet account
     - Document how to fund testnet account

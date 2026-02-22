@@ -203,11 +203,11 @@ export default function ChatPage() {
       <Header />
 
       <main className="flex-1 pt-24 pb-8 px-2 sm:px-4 lg:px-8 flex justify-center">
-        <div className="w-full max-w-6xl h-[min(82vh,760px)] bg-[#050509] border border-border/60 rounded-2xl shadow-lg overflow-hidden flex">
+        <div className="w-full max-w-6xl h-[min(82vh,760px)] bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden flex">
           {/* Sidebar */}
-          <aside className="w-[340px] border-r border-border/60 bg-[#0a0a10] flex flex-col">
+          <aside className="w-[340px] border-r border-border/60 bg-card flex flex-col">
             {/* Sidebar header */}
-            <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-3 bg-[#0f0f16]">
+            <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-3 bg-card">
               <div className="flex items-center gap-2">
                 <div className="relative h-8 w-8 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
                   <Image
@@ -333,7 +333,7 @@ export default function ChatPage() {
             </div>
 
             {/* Hidden wallet connector just to mirror status into chat UI */}
-            <div className="px-4 py-2 border-t border-border/60 bg-[#0f0f16] text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+            <div className="px-4 py-2 border-t border-border/60 bg-card text-[11px] text-muted-foreground flex items-center justify-between gap-2">
               <span className="truncate">
                 Wallet status for this device:
               </span>
@@ -342,7 +342,7 @@ export default function ChatPage() {
           </aside>
 
           {/* Main chat area */}
-          <section className="flex-1 flex flex-col bg-[#050509]">
+          <section className="flex-1 flex flex-col bg-background">
             {/* Empty state when no chat selected */}
             {!selectedChat && (
               <div className="flex flex-1 flex-col items-center justify-center text-center px-8 gap-4">
@@ -370,7 +370,7 @@ export default function ChatPage() {
             {selectedChat && selectedChat && (
               <>
                 {/* Header with name + address */}
-                <div className="px-6 py-3 border-b border-border/60 bg-[#0f0f16] flex items-center justify-between gap-4">
+                <div className="px-6 py-3 border-b border-border/60 bg-card flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative">
                       <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white shadow-md">
@@ -411,7 +411,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 bg-[#050509]">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 bg-background">
                   {messages.map((message) => {
                     const isMine = message.author === "me"
                     return (
@@ -486,7 +486,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Composer */}
-                <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-[#0f0f16] flex items-center gap-2">
+                <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-card flex items-center gap-2">
                   <input
                     type="text"
                     placeholder="Type a message"

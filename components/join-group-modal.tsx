@@ -56,15 +56,16 @@ export function JoinGroupModal() {
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-background/80 z-50" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 bg-card p-6 rounded-2xl border border-border/50">
+        <Dialog.Overlay className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/50 bg-card p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-2xl">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-lg font-semibold">Join Group</h3>
-              <p className="text-sm text-muted-foreground">Use an invite code or the group's ID to join.</p>
+              <Dialog.Title className="text-lg font-semibold">Join Group</Dialog.Title>
+              <Dialog.Description className="text-sm text-muted-foreground">Use an invite code or the group's ID to join.</Dialog.Description>
             </div>
-            <Dialog.Close className="p-2 rounded hover:bg-muted">
-              <X className="w-4 h-4" />
+            <Dialog.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
             </Dialog.Close>
           </div>
 
@@ -80,12 +81,19 @@ export function JoinGroupModal() {
 
             <div>
               <label className="text-sm">{method === "invite" ? "Invite Code" : "Group ID"}</label>
-              <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={method === "invite" ? "e.g. X7b-tnk-..." : "e.g. room_1612345678_xk3"} className="mt-1 w-full rounded border border-input px-3 py-2 bg-background text-sm" disabled={isSubmitting} />
+              <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={method === "invite" ? "e.g. X7b-tnk-..." : "e.g. room_1612345678_xk3"} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" disabled={isSubmitting} />
             </div>
 
             <div className="flex justify-end">
-              <button type="submit" disabled={isSubmitting} className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md">
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+              <button type="submit" disabled={isSubmitting} className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-6">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Joining...
+                  </>
+                ) : (
+                  "Join Group"
+                )}
               </button>
             </div>
           </form>

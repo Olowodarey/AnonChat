@@ -8,7 +8,7 @@
   - _Requirements: 4.1, 4.2_
 
 - [ ] 2. Create Metadata Hash Service
-  - [ ] 2.1 Implement hash computation function
+  - [x] 2.1 Implement hash computation function
     - Create lib/blockchain/metadata-hash.ts
     - Implement computeHash function using SHA-256
     - Implement canonical JSON serialization (sorted keys)
@@ -19,7 +19,7 @@
     - **Property 1: Hash computation determinism**
     - **Validates: Requirements 1.1**
   
-  - [ ] 2.3 Implement hash verification function
+  - [x] 2.3 Implement hash verification function
     - Add verifyHash function to compare hashes
     - _Requirements: 3.3_
   
@@ -160,7 +160,7 @@
     - _Requirements: 1.1, 1.4, 3.1, 3.4_
 
 - [ ] 10. Add logging utilities
-  - [ ] 10.1 Create structured logging helper
+  - [x] 10.1 Create structured logging helper
     - Create lib/blockchain/logger.ts
     - Implement logBlockchainOperation function
     - Include correlation IDs, timestamps, context

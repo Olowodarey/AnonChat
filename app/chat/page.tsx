@@ -19,7 +19,11 @@ import {
   Phone,
   Video,
   MoreVertical,
+  Star,
 } from "lucide-react"
+import { getPublicKey } from "@/app/stellar-wallet-kit"
+import { calculateReputation, trackActivity } from "@/lib/reputation"
+import { CONFIG } from "@/lib/config"
 
 type ChatPreview = {
   id: string
@@ -44,136 +48,202 @@ type ChatMessage = {
 export default function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [inputMessage, setInputMessage] = useState("")
 
   // TODO: Replace with real wallet state once wired
   const [walletConnected, setWalletConnected] = useState(false)
+  const [currentPublicKey, setCurrentPublicKey] = useState<string | null>(null)
+  const [reputationScore, setReputationScore] = useState(0)
+
+  const [messagesByChat, setMessagesByChat] = useState<Record<string, ChatMessage[]>>({
+    "1": [
+      {
+        id: "m1",
+        author: "them",
+        text: "Hey, welcome to AnonChat 👋",
+        time: "14:20",
+        delivered: true,
+        read: true,
+      },
+      {
+        id: "m2",
+        author: "me",
+        text: "Love how clean this feels on desktop.",
+        time: "14:22",
+        delivered: false,
+        read: false,
+        status: "sending",
+      },
+      {
+        id: "m2b",
+        author: "me",
+        text: "Just sent another update.",
+        time: "14:23",
+        delivered: false,
+        read: false,
+        status: "sent",
+      },
+      {
+        id: "m2c",
+        author: "me",
+        text: "Let me know once it lands.",
+        time: "14:24",
+        delivered: true,
+        read: false,
+        status: "delivered",
+      },
+      {
+        id: "m2d",
+        author: "me",
+        text: "Seen it?",
+        time: "14:24",
+        delivered: true,
+        read: true,
+        status: "read",
+      },
+      {
+        id: "m3",
+        author: "them",
+        text: "Messages stay end‑to‑end encrypted here.",
+        time: "14:25",
+        delivered: true,
+        read: false,
+      },
+    ],
+    "2": [
+      {
+        id: "m4",
+        author: "them",
+        text: "New governance draft is live.",
+        time: "09:02",
+        delivered: true,
+        read: true,
+      },
+    ],
+    "3": [
+      {
+        id: "m5",
+        author: "me",
+        text: "Let’s catch up on the drop.",
+        time: "17:40",
+        delivered: true,
+        read: true,
+      },
+    ],
+  })
+
+  // Fetch real public key if possible
+  useEffect(() => {
+    async function fetchKey() {
+      const key = await getPublicKey()
+      setCurrentPublicKey(key)
+    }
+    fetchKey()
+  }, [])
+
+  // Update reputation score
+  useEffect(() => {
+    const updateScore = () => {
+      setReputationScore(calculateReputation(currentPublicKey))
+    }
+    updateScore()
+    window.addEventListener("reputationUpdate", updateScore)
+    return () => window.removeEventListener("reputationUpdate", updateScore)
+  }, [currentPublicKey])
 
   // Detect wallet connection heuristically from DOM changes of ConnectWallet
   useEffect(() => {
     const el = document.getElementById("connect-wrap")
     if (!el) return
 
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver(async () => {
       const hasAddress = el.textContent && el.textContent.includes("...")
       setWalletConnected(Boolean(hasAddress))
+
+      // Also update public key on DOM change
+      const key = await getPublicKey()
+      setCurrentPublicKey(key)
     })
 
     observer.observe(el, { childList: true, subtree: true, characterData: true })
     return () => observer.disconnect()
   }, [])
 
-  const chats: ChatPreview[] = useMemo(
-    () => [
-      {
-        id: "1",
-        name: "Anon Whisper",
-        address: "GABC...1234",
-        lastMessage: "Got your message, will reply soon.",
-        lastSeen: "Today • 14:32",
-        unreadCount: 2,
-        status: "online",
-      },
-      {
-        id: "2",
-        name: "Room #xf23",
-        address: "GCDE...5678",
-        lastMessage: "Pinned the latest proposal for review.",
-        lastSeen: "Today • 09:10",
-        unreadCount: 0,
-        status: "recently_active",
-      },
-      {
-        id: "3",
-        name: "Collector",
-        address: "GHJK...9012",
-        lastMessage: "Let’s sync tomorrow.",
-        lastSeen: "Yesterday • 18:04",
-        unreadCount: 0,
-        status: "offline",
-      },
-    ],
-    [],
-  )
+  const [chats, setChats] = useState<ChatPreview[]>([
+    {
+      id: "1",
+      name: "Anon Whisper",
+      address: "GABC ... 1234",
+      lastMessage: "Got your message, will reply soon.",
+      lastSeen: "Today • 14:32",
+      unreadCount: 2,
+      status: "online",
+    },
+    {
+      id: "2",
+      name: "Room #xf23",
+      address: "GCDE ... 5678",
+      lastMessage: "Pinned the latest proposal for review.",
+      lastSeen: "Today • 09:10",
+      unreadCount: 0,
+      status: "recently_active",
+    },
+    {
+      id: "3",
+      name: "Collector",
+      address: "GHJK ... 9012",
+      lastMessage: "Let’s sync tomorrow.",
+      lastSeen: "Yesterday • 18:04",
+      unreadCount: 0,
+      status: "offline",
+    },
+  ]);
 
-  const messagesByChat: Record<string, ChatMessage[]> = useMemo(
-    () => ({
-      "1": [
-        {
-          id: "m1",
-          author: "them",
-          text: "Hey, welcome to AnonChat 👋",
-          time: "14:20",
-          delivered: true,
-          read: true,
-        },
-        {
-          id: "m2",
-          author: "me",
-          text: "Love how clean this feels on desktop.",
-          time: "14:22",
-          delivered: false,
-          read: false,
-          status: "sending",
-        },
-        {
-          id: "m2b",
-          author: "me",
-          text: "Just sent another update.",
-          time: "14:23",
-          delivered: false,
-          read: false,
-          status: "sent",
-        },
-        {
-          id: "m2c",
-          author: "me",
-          text: "Let me know once it lands.",
-          time: "14:24",
-          delivered: true,
-          read: false,
-          status: "delivered",
-        },
-        {
-          id: "m2d",
-          author: "me",
-          text: "Seen it?",
-          time: "14:24",
-          delivered: true,
-          read: true,
-          status: "read",
-        },
-        {
-          id: "m3",
-          author: "them",
-          text: "Messages stay end‑to‑end encrypted here.",
-          time: "14:25",
-          delivered: true,
-          read: false,
-        },
-      ],
-      "2": [
-        {
-          id: "m4",
-          author: "them",
-          text: "New governance draft is live.",
-          time: "09:02",
-          delivered: true,
-          read: true,
-        },
-      ],
-      "3": [
-        {
-          id: "m5",
-          author: "me",
-          text: "Let’s catch up on the drop.",
-          time: "17:40",
-          delivered: true,
-          read: true,
-        },
-      ],
-    }),
-    [],
-  )
+  // Listen for new room creation
+  useEffect(() => {
+    const handleRoomCreated = (e: any) => {
+      const newRoom = e.detail
+      setChats(prev => [newRoom, ...prev])
+      setSelectedChatId(newRoom.id)
+    }
+    window.addEventListener("roomCreated", handleRoomCreated)
+    return () => window.removeEventListener("roomCreated", handleRoomCreated)
+  }, [])
+
+  const handleSendMessage = () => {
+    if (!inputMessage.trim() || !selectedChatId) return
+
+    const newMessage: ChatMessage = {
+      id: `m${Date.now()}`,
+      author: "me",
+      text: inputMessage,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+      delivered: false,
+      read: false,
+      status: "sent"
+    }
+
+    setMessagesByChat(prev => ({
+      ...prev,
+      [selectedChatId]: [...(prev[selectedChatId] || []), newMessage]
+    }))
+
+    setChats(prev => prev.map(chat =>
+      chat.id === selectedChatId
+        ? { ...chat, lastMessage: inputMessage, lastSeen: "Just now", unreadCount: 0 }
+        : chat
+    ))
+
+    setInputMessage("")
+    trackActivity(currentPublicKey, 'message')
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
 
   const getDeliveryStatus = (message: ChatMessage) => {
     if (message.status) return message.status
@@ -241,13 +311,23 @@ export default function ChatPage() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
-                      Connected
+                      CONNECTED
                     </span>
                     <span className="text-[11px] font-mono text-foreground">
-                      0×7a3...f2c1
+                      {currentPublicKey ? `${currentPublicKey.slice(0, 4)} ... ${currentPublicKey.slice(-4)}` : "0×7a3 ... f2c1"}
                     </span>
                   </div>
                 </div>
+
+                {CONFIG.EXPERIMENTAL_REPUTATION_ENABLED && (
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20" title="Reputation Score (Experimental)">
+                    <Star className="h-3 w-3 text-primary fill-primary" />
+                    <span className="text-[11px] font-bold text-primary">
+                      {reputationScore}
+                    </span>
+                  </div>
+                )}
+
                 <button className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-[#1b1b24] hover:bg-[#232330] transition border border-border/60">
                   <Share2 className="h-3 w-3" />
                   <span>Share</span>
@@ -292,7 +372,7 @@ export default function ChatPage() {
                           className={cn(
                             "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-[#181824] transition",
                             isSelected &&
-                              "bg-[#19192a] border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]",
+                            "bg-[#19192a] border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]",
                           )}
                         >
                           <div className="relative">
@@ -367,7 +447,7 @@ export default function ChatPage() {
             )}
 
             {/* Conversation view */}
-            {selectedChat && selectedChat && (
+            {selectedChat && (
               <>
                 {/* Header with name + address */}
                 <div className="px-6 py-3 border-b border-border/60 bg-[#0f0f16] flex items-center justify-between gap-4">
@@ -393,9 +473,17 @@ export default function ChatPage() {
 
                   <div className="hidden sm:flex items-center gap-3 text-muted-foreground">
                     {walletConnected && (
-                      <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-[#181822] border border-border/60">
-                        <Wallet className="h-3.5 w-3.5 text-primary" />
-                        <span>Wallet linked</span>
+                      <div className="flex items-center gap-3">
+                        {CONFIG.EXPERIMENTAL_REPUTATION_ENABLED && (
+                          <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                            <Star className="h-3 w-3 fill-primary" />
+                            <span className="font-bold">{reputationScore} Rep</span>
+                          </div>
+                        )}
+                        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-[#181822] border border-border/60">
+                          <Wallet className="h-3.5 w-3.5 text-primary" />
+                          <span>Wallet linked</span>
+                        </div>
                       </div>
                     )}
                     <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
@@ -489,10 +577,16 @@ export default function ChatPage() {
                 <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-[#0f0f16] flex items-center gap-2">
                   <input
                     type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
                     placeholder="Type a message"
                     className="flex-1 rounded-full border border-border/60 bg-[#181822] px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70"
                   />
-                  <button className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition">
+                  <button
+                    onClick={handleSendMessage}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition"
+                  >
                     <Send className="h-4 w-4" />
                   </button>
                 </div>

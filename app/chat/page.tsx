@@ -6,6 +6,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { PresenceIndicator, type PresenceStatus } from "@/components/presence-indicator"
 import ConnectWallet from "@/components/wallet-connector"
+import { RoomMembersDialog } from "@/components/room-members-dialog"
 import { cn } from "@/lib/utils"
 import {
   Search,
@@ -44,6 +45,7 @@ type ChatMessage = {
 export default function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [roomMembersOpen, setRoomMembersOpen] = useState(false)
 
   // TODO: Replace with real wallet state once wired
   const [walletConnected, setWalletConnected] = useState(false)
@@ -404,9 +406,20 @@ export default function ChatPage() {
                     <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
                       <Video className="h-4 w-4" />
                     </button>
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+                    <RoomMembersDialog
+                      roomId={selectedChat.id}
+                      open={roomMembersOpen}
+                      onOpenChange={setRoomMembersOpen}
+                      trigger={
+                        <button
+                          type="button"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition"
+                          aria-label="Room members and voting"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      }
+                    />
                   </div>
                 </div>
 

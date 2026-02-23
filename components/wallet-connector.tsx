@@ -7,7 +7,7 @@ import {
   signMessage,
 } from "@/app/stellar-wallet-kit";
 import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ConnectWallet() {
@@ -82,10 +82,15 @@ export default function ConnectWallet() {
 
   async function handleConnect() {
     await connect(async () => {
-      const key = await getPublicKey();
-      if (key) {
-        await authenticateWithWallet(key);
-      } else {
+      try {
+        const key = await getPublicKey();
+        if (key) {
+          await authenticateWithWallet(key);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Connection error:", error);
         setLoading(false);
       }
     });
@@ -108,9 +113,16 @@ export default function ConnectWallet() {
   // Restore wallet state on mount (no re-authentication needed if session exists)
   useEffect(() => {
     (async () => {
-      const key = await getPublicKey();
-      if (key) setPublicKey(key);
-      setLoading(false);
+      try {
+        const key = await getPublicKey();
+        if (key) {
+          setPublicKey(key);
+        }
+      } catch (error) {
+        console.error("Initial wallet check failed:", error);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 

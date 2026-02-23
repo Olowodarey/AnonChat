@@ -21,7 +21,10 @@ import {
   Phone,
   Video,
   MoreVertical,
+  Star,
 } from "lucide-react"
+import { calculateReputation, trackActivity } from "@/lib/reputation"
+import { CONFIG } from "@/lib/config"
 
 type ChatPreview = {
   id: string
@@ -46,70 +49,151 @@ type ChatMessage = {
 export default function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [inputMessage, setInputMessage] = useState("")
   const [roomMembersOpen, setRoomMembersOpen] = useState(false)
 
   const [walletConnected, setWalletConnected] = useState(false)
-  const [userAddress, setUserAddress] = useState<string | null>(null)
+  const [currentPublicKey, setCurrentPublicKey] = useState<string | null>(null)
+  const [reputationScore, setReputationScore] = useState(0)
+
+  const [messagesByChat, setMessagesByChat] = useState<Record<string, ChatMessage[]>>({
+    "1": [
+      {
+        id: "m1",
+        author: "them",
+        text: "Hey, welcome to AnonChat 👋",
+        time: "14:20",
+        delivered: true,
+        read: true,
+      },
+      {
+        id: "m2",
+        author: "me",
+        text: "Love how clean this feels on desktop.",
+        time: "14:22",
+        delivered: false,
+        read: false,
+        status: "sending",
+      },
+      {
+        id: "m2b",
+        author: "me",
+        text: "Just sent another update.",
+        time: "14:23",
+        delivered: false,
+        read: false,
+        status: "sent",
+      },
+      {
+        id: "m2c",
+        author: "me",
+        text: "Let me know once it lands.",
+        time: "14:24",
+        delivered: true,
+        read: false,
+        status: "delivered",
+      },
+      {
+        id: "m2d",
+        author: "me",
+        text: "Seen it?",
+        time: "14:24",
+        delivered: true,
+        read: true,
+        status: "read",
+      },
+      {
+        id: "m3",
+        author: "them",
+        text: "Messages stay end‑to‑end encrypted here.",
+        time: "14:25",
+        delivered: true,
+        read: false,
+      },
+    ],
+    "2": [
+      {
+        id: "m4",
+        author: "them",
+        text: "New governance draft is live.",
+        time: "09:02",
+        delivered: true,
+        read: true,
+      },
+    ],
+    "3": [
+      {
+        id: "m5",
+        author: "me",
+        text: "Let’s catch up on the drop.",
+        time: "17:40",
+        delivered: true,
+        read: true,
+      },
+    ],
+  })
+
+  // Update reputation score
+  useEffect(() => {
+    const updateScore = () => {
+      setReputationScore(calculateReputation(currentPublicKey))
+    }
+    updateScore()
+    window.addEventListener("reputationUpdate", updateScore)
+    return () => window.removeEventListener("reputationUpdate", updateScore)
+  }, [currentPublicKey])
 
   // Sync wallet state properly
   useEffect(() => {
     const checkWallet = async () => {
       const address = await getPublicKey()
       setWalletConnected(!!address)
-      setUserAddress(address)
-    }
+      checkWallet()
 
-    checkWallet()
+      // Listen for disconnects
+      const unsubscribe = onDisconnect(() => {
+        setWalletConnected(false)
+        setCurrentPublicKey(null)
+      })
 
-    // Listen for disconnects
-    const unsubscribe = onDisconnect(() => {
-      setWalletConnected(false)
-      setUserAddress(null)
-    })
+      // Heuristic: Check on interval or simple event as well since kit doesn't have onConnect yet
+      const interval = setInterval(checkWallet, 1000)
 
-    // Heuristic: Check on interval or simple event as well since kit doesn't have onConnect yet
-    const interval = setInterval(checkWallet, 1000)
+      return () => {
+        unsubscribe()
+        clearInterval(interval)
+      }
+    }}, [])
 
-    return () => {
-      unsubscribe()
-      clearInterval(interval)
-    }
-  }, [])
-
-  const initialChats: ChatPreview[] = useMemo(
-    () => [
-      {
-        id: "1",
-        name: "Anon Whisper",
-        address: "GABC...1234",
-        lastMessage: "Got your message, will reply soon.",
-        lastSeen: "Today • 14:32",
-        unreadCount: 2,
-        status: "online",
-      },
-      {
-        id: "2",
-        name: "Room #xf23",
-        address: "GCDE...5678",
-        lastMessage: "Pinned the latest proposal for review.",
-        lastSeen: "Today • 09:10",
-        unreadCount: 0,
-        status: "recently_active",
-      },
-      {
-        id: "3",
-        name: "Collector",
-        address: "GHJK...9012",
-        lastMessage: "Let’s sync tomorrow.",
-        lastSeen: "Yesterday • 18:04",
-        unreadCount: 0,
-        status: "offline",
-      },
-    ],
-    [],
-  )
-
-  const [chats, setChats] = useState<ChatPreview[]>(initialChats)
+  const [chats, setChats] = useState<ChatPreview[]>([
+    {
+      id: "1",
+      name: "Anon Whisper",
+      address: "GABC ... 1234",
+      lastMessage: "Got your message, will reply soon.",
+      lastSeen: "Today • 14:32",
+      unreadCount: 2,
+      status: "online",
+    },
+    {
+      id: "2",
+      name: "Room #xf23",
+      address: "GCDE ... 5678",
+      lastMessage: "Pinned the latest proposal for review.",
+      lastSeen: "Today • 09:10",
+      unreadCount: 0,
+      status: "recently_active",
+    },
+    {
+      id: "3",
+      name: "Collector",
+      address: "GHJK ... 9012",
+      lastMessage: "Let’s sync tomorrow.",
+      lastSeen: "Yesterday • 18:04",
+      unreadCount: 0,
+      status: "offline",
+    },
+  ]);
 
   const markRoomRead = async (roomId: string) => {
     try {
@@ -130,85 +214,51 @@ export default function ChatPage() {
     setChats((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
   }
 
-  const messagesByChat: Record<string, ChatMessage[]> = useMemo(
-    () => ({
-      "1": [
-        {
-          id: "m1",
-          author: "them",
-          text: "Hey, welcome to AnonChat 👋",
-          time: "14:20",
-          delivered: true,
-          read: true,
-        },
-        {
-          id: "m2",
-          author: "me",
-          text: "Love how clean this feels on desktop.",
-          time: "14:22",
-          delivered: false,
-          read: false,
-          status: "sending",
-        },
-        {
-          id: "m2b",
-          author: "me",
-          text: "Just sent another update.",
-          time: "14:23",
-          delivered: false,
-          read: false,
-          status: "sent",
-        },
-        {
-          id: "m2c",
-          author: "me",
-          text: "Let me know once it lands.",
-          time: "14:24",
-          delivered: true,
-          read: false,
-          status: "delivered",
-        },
-        {
-          id: "m2d",
-          author: "me",
-          text: "Seen it?",
-          time: "14:24",
-          delivered: true,
-          read: true,
-          status: "read",
-        },
-        {
-          id: "m3",
-          author: "them",
-          text: "Messages stay end‑to‑end encrypted here.",
-          time: "14:25",
-          delivered: true,
-          read: false,
-        },
-      ],
-      "2": [
-        {
-          id: "m4",
-          author: "them",
-          text: "New governance draft is live.",
-          time: "09:02",
-          delivered: true,
-          read: true,
-        },
-      ],
-      "3": [
-        {
-          id: "m5",
-          author: "me",
-          text: "Let’s catch up on the drop.",
-          time: "17:40",
-          delivered: true,
-          read: true,
-        },
-      ],
-    }),
-    [],
-  )
+  // Listen for new room creation
+  useEffect(() => {
+    const handleRoomCreated = (e: any) => {
+      const newRoom = e.detail
+      setChats(prev => [newRoom, ...prev])
+      setSelectedChatId(newRoom.id)
+    }
+    window.addEventListener("roomCreated", handleRoomCreated)
+    return () => window.removeEventListener("roomCreated", handleRoomCreated)
+  }, [])
+
+  const handleSendMessage = () => {
+    if (!inputMessage.trim() || !selectedChatId) return
+
+    const newMessage: ChatMessage = {
+      id: `m${Date.now()}`,
+      author: "me",
+      text: inputMessage,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+      delivered: false,
+      read: false,
+      status: "sent"
+    }
+
+    setMessagesByChat(prev => ({
+      ...prev,
+      [selectedChatId]: [...(prev[selectedChatId] || []), newMessage]
+    }))
+
+    setChats(prev => prev.map(chat =>
+      chat.id === selectedChatId
+        ? { ...chat, lastMessage: inputMessage, lastSeen: "Just now", unreadCount: 0 }
+        : chat
+    ))
+
+    setInputMessage("")
+    trackActivity(currentPublicKey, 'message')
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
 
   const getDeliveryStatus = (message: ChatMessage) => {
     if (message.status) return message.status
@@ -276,13 +326,23 @@ export default function ChatPage() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
-                      Connected
+                      CONNECTED
                     </span>
                     <span className="text-[11px] font-mono text-foreground">
-                      {userAddress ? `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}` : "None"}
+                      {currentPublicKey ? `${currentPublicKey.slice(0, 4)} ... ${currentPublicKey.slice(-4)}` : "None"}
                     </span>
                   </div>
                 </div>
+
+                {CONFIG.EXPERIMENTAL_REPUTATION_ENABLED && (
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20" title="Reputation Score (Experimental)">
+                    <Star className="h-3 w-3 text-primary fill-primary" />
+                    <span className="text-[11px] font-bold text-primary">
+                      {reputationScore}
+                    </span>
+                  </div>
+                )}
+
                 <button className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-[#1b1b24] hover:bg-[#232330] transition border border-border/60">
                   <Share2 className="h-3 w-3" />
                   <span>Share</span>
@@ -291,7 +351,7 @@ export default function ChatPage() {
             )}
 
             {/* Search + chats header */}
-                <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-card">
+            <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-card">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="font-semibold tracking-wide uppercase text-foreground">
                   Messages
@@ -322,13 +382,13 @@ export default function ChatPage() {
                     const isSelected = chat.id === selectedChatId
                     return (
                       <li key={chat.id}>
-                          <button
+                        <button
                           onClick={() => void handleSelectChat(chat.id)}
                           className={cn(
                             "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-muted/10 transition cursor-pointer",
-                              isSelected &&
-                                "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
-                            )}
+                            isSelected &&
+                            "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
+                          )}
                         >
                           <div className="relative">
                             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white shadow-md">
@@ -402,7 +462,7 @@ export default function ChatPage() {
             )}
 
             {/* Conversation view */}
-            {selectedChat && selectedChat && (
+            {selectedChat && (
               <>
                 {/* Header with name + address */}
                 <div className="px-6 py-3 border-b border-border/60 bg-card flex items-center justify-between gap-4">
@@ -428,9 +488,18 @@ export default function ChatPage() {
 
                   <div className="hidden sm:flex items-center gap-3 text-muted-foreground">
                     {walletConnected && (
-                      <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-border/60">
-                        <Wallet className="h-3.5 w-3.5 text-primary" />
-                        <span>Wallet linked</span>
+                      <div className="flex items-center gap-3">
+                        {CONFIG.EXPERIMENTAL_REPUTATION_ENABLED && (
+                          <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                            <Star className="h-3 w-3 fill-primary" />
+                            <span className="font-bold">{reputationScore} Rep</span>
+                          </div>
+                        )}
+                        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-border/60">
+                          <Wallet className="h-3.5 w-3.5 text-primary" />
+                          <span>Wallet linked</span>
+                        </div>
+
                       </div>
                     )}
                     <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
@@ -439,20 +508,20 @@ export default function ChatPage() {
                     <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
                       <Video className="h-4 w-4" />
                     </button>
-                      <RoomMembersDialog
-                        roomId={selectedChat.id}
-                        open={roomMembersOpen}
-                        onOpenChange={setRoomMembersOpen}
-                        trigger={
-                          <button
-                            type="button"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition"
-                            aria-label="Room members and voting"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                        }
-                      />
+                    <RoomMembersDialog
+                      roomId={selectedChat.id}
+                      open={roomMembersOpen}
+                      onOpenChange={setRoomMembersOpen}
+                      trigger={
+                        <button
+                          type="button"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition"
+                          aria-label="Room members and voting"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      }
+                    />
                   </div>
                 </div>
 
@@ -535,10 +604,16 @@ export default function ChatPage() {
                 <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-card flex items-center gap-2">
                   <input
                     type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
                     placeholder="Type a message"
                     className="flex-1 rounded-full border border-border/60 bg-card px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70"
                   />
-                  <button className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition">
+                  <button
+                    onClick={handleSendMessage}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition"
+                  >
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
@@ -546,9 +621,9 @@ export default function ChatPage() {
             )}
           </section>
         </div>
-      </main>
+      </main >
 
       <Footer />
-    </div>
+    </div >
   )
 }

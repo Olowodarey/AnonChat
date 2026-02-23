@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Users, Loader2 } from "lucide-react";
 import { getPublicKey, connect } from "@/app/stellar-wallet-kit";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
+import { trackActivity } from "@/lib/reputation";
 
 export function CreateGroupModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,7 +36,7 @@ export function CreateGroupModal() {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!publicKey) {
       toast.error("Please connect your wallet first");
       return;
@@ -47,10 +48,26 @@ export function CreateGroupModal() {
     }
 
     setIsSubmitting(true);
-    
+ 
     // Simulate API call
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
+      trackActivity(publicKey, 'group');
+
+      const newRoom = {
+        id: `room-${Date.now()}`,
+        name: groupName,
+        address: publicKey ? `${publicKey.slice(0, 4)} ... ${publicKey.slice(-4)}` : "Unknown",
+        lastMessage: "Group created",
+        lastSeen: "Just now",
+        unreadCount: 0,
+        status: "online"
+      };
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("roomCreated", { detail: newRoom }));
+      }
+
       toast.success(`Group "${groupName}" created successfully!`);
       setGroupName("");
       setIsOpen(false);
@@ -68,7 +85,7 @@ export function CreateGroupModal() {
           Create Group
         </button>
       </Dialog.Trigger>
-      
+
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/50 bg-card p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-2xl">
@@ -109,7 +126,7 @@ export function CreateGroupModal() {
                   disabled={isSubmitting}
                 />
               </div>
-              
+
               <div className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
                 <button
                   type="submit"

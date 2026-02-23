@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { WebSocketMessage, ConnectionState, WebSocketEventType } from "@/types/websocket"
+import { WebSocketMessage, ConnectionState, WebSocketServerEventType } from "@/types/websocket"
 import { getWebSocketClient } from "@/lib/websocket/client"
 
 interface UseWebSocketOptions {
@@ -14,7 +14,7 @@ interface UseWebSocketReturn {
   isConnected: boolean
   send: (message: WebSocketMessage) => void
   on: (
-    type: WebSocketEventType,
+    type: WebSocketServerEventType,
     handler: (message: WebSocketMessage) => void,
   ) => () => void
   connect: () => Promise<void>
@@ -65,7 +65,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   }, [])
 
   const on = useCallback(
-    (type: WebSocketEventType, handler: (message: WebSocketMessage) => void): (() => void) => {
+    (type: WebSocketServerEventType, handler: (message: WebSocketMessage) => void): (() => void) => {
       return clientRef.current.onMessage(type, handler)
     },
     [],
@@ -91,7 +91,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
 // Hook for listening to specific message types
 export function useWebSocketMessage(
-  type: WebSocketEventType,
+  type: WebSocketServerEventType,
   handler?: (message: WebSocketMessage) => void,
 ): void {
   const { on } = useWebSocket()

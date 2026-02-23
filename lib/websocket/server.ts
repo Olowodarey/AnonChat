@@ -69,7 +69,7 @@ export function createWebSocketServer(port: number = 3001) {
     if (!client) return
 
     if (client.heartbeatTimer) {
-      clearInterval(client.heartbeatTimer)
+      clearInterval(client.heartbeatTimer as any)
     }
 
     client.heartbeatTimer = setInterval(() => {
@@ -83,7 +83,7 @@ export function createWebSocketServer(port: number = 3001) {
     const client = clients.get(clientId)
     if (client) {
       if (client.heartbeatTimer) {
-        clearInterval(client.heartbeatTimer)
+        clearInterval(client.heartbeatTimer as any)
       }
       client.ws.close()
     }

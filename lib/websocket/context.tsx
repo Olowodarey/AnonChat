@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode } from "react"
 import { useWebSocket } from "@/lib/websocket/hooks"
-import { ConnectionState, WebSocketEventType } from "@/types/websocket"
+import { ConnectionState, WebSocketEventType, WebSocketServerEventType } from "@/types/websocket"
 import { WebSocketMessage } from "@/types/websocket"
 
 interface WebSocketContextValue {
@@ -10,7 +10,7 @@ interface WebSocketContextValue {
   isConnected: boolean
   send: (message: WebSocketMessage) => void
   on: (
-    type: WebSocketEventType,
+    type: WebSocketServerEventType,
     handler: (message: WebSocketMessage) => void,
   ) => () => void
   connect: () => Promise<void>

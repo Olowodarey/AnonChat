@@ -1,5 +1,5 @@
-// WebSocket event types
-export type WebSocketEventType =
+// Server-to-client event types
+export type WebSocketServerEventType =
   | "message"
   | "room_join"
   | "room_leave"
@@ -10,6 +10,20 @@ export type WebSocketEventType =
   | "presence_update"
   | "error"
   | "connection_established"
+
+// Client-to-server event types
+export type WebSocketClientEventType =
+  | "auth"
+  | "join_room"
+  | "leave_room"
+  | "send_message"
+  | "typing"
+  | "stop_typing"
+  | "wallet_event"
+  | "pong"
+
+// All event types
+export type WebSocketEventType = WebSocketServerEventType | WebSocketClientEventType
 
 export interface WebSocketMessage {
   type: WebSocketEventType
@@ -61,8 +75,8 @@ export type ConnectionState = "connecting" | "connected" | "disconnected" | "err
 export interface WebSocketContextType {
   connectionState: ConnectionState
   isConnected: boolean
-  message: WebSocketMessage | null
-  sendMessage: (event: WebSocketMessage) => void
-  onMessage: (callback: (message: WebSocketMessage) => void) => void
-  offMessage: (callback: (message: WebSocketMessage) => void) => void
+  send: (event: WebSocketMessage) => void
+  on: (type: WebSocketEventType, callback: (message: WebSocketMessage) => void) => () => void
+  connect: () => Promise<void>
+  disconnect: () => void
 }

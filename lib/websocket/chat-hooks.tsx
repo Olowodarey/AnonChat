@@ -57,25 +57,26 @@ export function useRealtimeChat(roomId: string, userId?: string) {
 
   // Listen for new messages
   useWebSocketMessage("message", (msg: WebSocketMessage) => {
-    if (msg.payload.roomId === roomId) {
-      setMessages((prev) => [...prev, msg.payload])
+    if ((msg.payload as any).roomId === roomId) {
+      const messagePayload = msg.payload as any as RealtimeMessageUpdate
+      setMessages((prev) => [...prev, messagePayload])
     }
   })
 
   // Listen for room joins
   useWebSocketMessage("room_join", (msg: WebSocketMessage) => {
-    if (msg.payload.roomId === roomId) {
-      setRoomUsers((prev) => new Set([...prev, msg.payload.userId]))
-      toast.info(`${msg.payload.displayName} joined the room`)
+    if ((msg.payload as any).roomId === roomId) {
+      setRoomUsers((prev) => new Set([...prev, (msg.payload as any).userId]))
+      toast.info(`${(msg.payload as any).displayName} joined the room`)
     }
   })
 
   // Listen for room leaves
   useWebSocketMessage("room_leave", (msg: WebSocketMessage) => {
-    if (msg.payload.roomId === roomId) {
+    if ((msg.payload as any).roomId === roomId) {
       setRoomUsers((prev) => {
         const updated = new Set(prev)
-        updated.delete(msg.payload.userId)
+        updated.delete((msg.payload as any).userId)
         return updated
       })
     }
@@ -83,12 +84,13 @@ export function useRealtimeChat(roomId: string, userId?: string) {
 
   // Listen for typing indicators
   useWebSocketMessage("user_typing", (msg: WebSocketMessage) => {
-    if (msg.payload.roomId === roomId) {
+    const payload = msg.payload as any
+    if (payload.roomId === roomId) {
       setTypingUsers((prev) => {
         const updated = new Map(prev)
-        updated.set(msg.payload.userId, {
-          userId: msg.payload.userId,
-          displayName: msg.payload.displayName,
+        updated.set(payload.userId, {
+          userId: payload.userId,
+          displayName: payload.displayName,
           roomId: roomId,
         })
         return updated
@@ -98,10 +100,11 @@ export function useRealtimeChat(roomId: string, userId?: string) {
 
   // Listen for stop typing
   useWebSocketMessage("user_stop_typing", (msg: WebSocketMessage) => {
-    if (msg.payload.roomId === roomId) {
+    const payload = msg.payload as any
+    if (payload.roomId === roomId) {
       setTypingUsers((prev) => {
         const updated = new Map(prev)
-        updated.delete(msg.payload.userId)
+        updated.delete(payload.userId)
         return updated
       })
     }
@@ -109,21 +112,24 @@ export function useRealtimeChat(roomId: string, userId?: string) {
 
   // Listen for wallet events
   useWebSocketMessage("wallet_connect", (msg: WebSocketMessage) => {
-    toast.info(`${msg.payload.userId} connected wallet`)
+    const payload = msg.payload as any
+    toast.info(`${payload.userId} connected wallet`)
   })
 
   useWebSocketMessage("wallet_disconnect", (msg: WebSocketMessage) => {
-    toast.info(`${msg.payload.userId} disconnected wallet`)
+    const payload = msg.payload as any
+    toast.info(`${payload.userId} disconnected wallet`)
   })
 
   // Listen for presence updates
   useWebSocketMessage("presence_update", (msg: WebSocketMessage) => {
+    const payload = msg.payload as any
     // Update presence status in UI if needed
-    const status = msg.payload.status
+    const status = payload.status
     if (status === "offline") {
       setRoomUsers((prev) => {
         const updated = new Set(prev)
-        updated.delete(msg.payload.userId)
+        updated.delete(payload.userId)
         return updated
       })
     }

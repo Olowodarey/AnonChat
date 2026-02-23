@@ -1,6 +1,8 @@
 import {
   WebSocketMessage,
   WebSocketEventType,
+  WebSocketServerEventType,
+  WebSocketClientEventType,
   ConnectionState,
 } from "@/types/websocket"
 
@@ -16,7 +18,7 @@ export class WebSocketClient {
   private connectionState: ConnectionState = "disconnected"
   private reconnectAttempts = 0
   private reconnectDelay = INITIAL_RECONNECT_DELAY
-  private reconnectTimeout: NodeJS.Timer | null = null
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   private clientId: string | null = null
 
   constructor(url: string) {
@@ -140,7 +142,7 @@ export class WebSocketClient {
   }
 
   onMessage(
-    type: WebSocketEventType,
+    type: WebSocketServerEventType,
     handler: (message: WebSocketMessage) => void,
   ): () => void {
     if (!this.messageHandlers.has(type)) {

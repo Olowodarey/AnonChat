@@ -1,6 +1,6 @@
 "use client";
 
-import { connect, disconnect, getPublicKey } from "@/app/stellar-wallet-kit";
+import { autoReconnect, connect, disconnect, getPublicKey } from "@/app/stellar-wallet-kit";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -35,7 +35,7 @@ export default function ConnectWallet() {
 
   useEffect(() => {
     (async () => {
-      const key = await getPublicKey();
+      const key = await autoReconnect();
       if (key) {
         setPublicKey(key);
       }

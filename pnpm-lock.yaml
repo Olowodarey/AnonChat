@@ -95,6 +95,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: 1.1.6
         version: 1.1.6(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@stellar/stellar-sdk':
+        specifier: ^13.3.0
+        version: 13.3.0
       '@supabase/ssr':
         specifier: 0.8.0
         version: 0.8.0(@supabase/supabase-js@2.90.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))
@@ -183,6 +186,9 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.0.0
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       postcss:
         specifier: ^8.5
         version: 8.5.0
@@ -195,6 +201,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.0.2
+      ws:
+        specifier: ^8.19.0
+        version: 8.19.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
 
 packages:
 

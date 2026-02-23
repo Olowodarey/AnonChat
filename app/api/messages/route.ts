@@ -48,6 +48,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "room_id and content are required" }, { status: 400 })
     }
 
+    const { data: membership, error: memberErr } = await supabase
+      .from("room_members")
+      .select("id, removed_at")
+      .eq("room_id", room_id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (memberErr) throw memberErr
+
+    if (membership?.removed_at) {
+      return NextResponse.json(
+        { error: "You have been removed from this room and cannot send messages" },
+        { status: 403 }
+      )
+    }
+
+    if (!membership) {
+      const { error: insertMemberErr } = await supabase.from("room_members").insert({
+        room_id,
+        user_id: user.id,
+      })
+      if (insertMemberErr) throw insertMemberErr
+    }
+
     const { data, error } = await supabase
       .from("messages")
       .insert({

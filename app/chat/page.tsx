@@ -6,7 +6,9 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { PresenceIndicator, type PresenceStatus } from "@/components/presence-indicator"
 import ConnectWallet from "@/components/wallet-connector"
+import { RoomMembersDialog } from "@/components/room-members-dialog"
 import { cn } from "@/lib/utils"
+import { getPublicKey, onDisconnect } from "@/app/stellar-wallet-kit"
 import {
   Search,
   MessageCircle,
@@ -44,25 +46,37 @@ type ChatMessage = {
 export default function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [roomMembersOpen, setRoomMembersOpen] = useState(false)
 
-  // TODO: Replace with real wallet state once wired
   const [walletConnected, setWalletConnected] = useState(false)
+  const [userAddress, setUserAddress] = useState<string | null>(null)
 
-  // Detect wallet connection heuristically from DOM changes of ConnectWallet
+  // Sync wallet state properly
   useEffect(() => {
-    const el = document.getElementById("connect-wrap")
-    if (!el) return
+    const checkWallet = async () => {
+      const address = await getPublicKey()
+      setWalletConnected(!!address)
+      setUserAddress(address)
+    }
 
-    const observer = new MutationObserver(() => {
-      const hasAddress = el.textContent && el.textContent.includes("...")
-      setWalletConnected(Boolean(hasAddress))
+    checkWallet()
+
+    // Listen for disconnects
+    const unsubscribe = onDisconnect(() => {
+      setWalletConnected(false)
+      setUserAddress(null)
     })
 
-    observer.observe(el, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
+    // Heuristic: Check on interval or simple event as well since kit doesn't have onConnect yet
+    const interval = setInterval(checkWallet, 1000)
+
+    return () => {
+      unsubscribe()
+      clearInterval(interval)
+    }
   }, [])
 
-  const chats: ChatPreview[] = useMemo(
+  const initialChats: ChatPreview[] = useMemo(
     () => [
       {
         id: "1",
@@ -94,6 +108,27 @@ export default function ChatPage() {
     ],
     [],
   )
+
+  const [chats, setChats] = useState<ChatPreview[]>(initialChats)
+
+  const markRoomRead = async (roomId: string) => {
+    try {
+      await fetch("/api/rooms/mark-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      })
+    } catch (err) {
+      console.error("Failed to mark room read", err)
+    }
+  }
+
+  const handleSelectChat = async (id: string) => {
+    setSelectedChatId(id)
+    // update server and local unread count
+    await markRoomRead(id)
+    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
+  }
 
   const messagesByChat: Record<string, ChatMessage[]> = useMemo(
     () => ({
@@ -203,11 +238,11 @@ export default function ChatPage() {
       <Header />
 
       <main className="flex-1 pt-24 pb-8 px-2 sm:px-4 lg:px-8 flex justify-center">
-        <div className="w-full max-w-6xl h-[min(82vh,760px)] bg-[#050509] border border-border/60 rounded-2xl shadow-lg overflow-hidden flex">
+        <div className="w-full max-w-6xl h-[min(82vh,760px)] bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden flex">
           {/* Sidebar */}
-          <aside className="w-[340px] border-r border-border/60 bg-[#0a0a10] flex flex-col">
+          <aside className="w-[340px] border-r border-border/60 bg-card flex flex-col">
             {/* Sidebar header */}
-            <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-3 bg-[#0f0f16]">
+            <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-3 bg-card">
               <div className="flex items-center gap-2">
                 <div className="relative h-8 w-8 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
                   <Image
@@ -244,7 +279,7 @@ export default function ChatPage() {
                       Connected
                     </span>
                     <span className="text-[11px] font-mono text-foreground">
-                      0×7a3...f2c1
+                      {userAddress ? `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}` : "None"}
                     </span>
                   </div>
                 </div>
@@ -256,7 +291,7 @@ export default function ChatPage() {
             )}
 
             {/* Search + chats header */}
-            <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-[#11111a]">
+                <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-card">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="font-semibold tracking-wide uppercase text-foreground">
                   Messages
@@ -269,7 +304,7 @@ export default function ChatPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search ENS or Wallet"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#181822] text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70 transition"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-card text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70 transition"
                 />
               </div>
             </div>
@@ -287,13 +322,13 @@ export default function ChatPage() {
                     const isSelected = chat.id === selectedChatId
                     return (
                       <li key={chat.id}>
-                        <button
-                          onClick={() => setSelectedChatId(chat.id)}
+                          <button
+                          onClick={() => void handleSelectChat(chat.id)}
                           className={cn(
-                            "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-[#181824] transition",
-                            isSelected &&
-                              "bg-[#19192a] border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]",
-                          )}
+                            "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-muted/10 transition cursor-pointer",
+                              isSelected &&
+                                "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
+                            )}
                         >
                           <div className="relative">
                             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white shadow-md">
@@ -333,7 +368,7 @@ export default function ChatPage() {
             </div>
 
             {/* Hidden wallet connector just to mirror status into chat UI */}
-            <div className="px-4 py-2 border-t border-border/60 bg-[#0f0f16] text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+            <div className="px-4 py-2 border-t border-border/60 bg-card text-[11px] text-muted-foreground flex items-center justify-between gap-2">
               <span className="truncate">
                 Wallet status for this device:
               </span>
@@ -342,7 +377,7 @@ export default function ChatPage() {
           </aside>
 
           {/* Main chat area */}
-          <section className="flex-1 flex flex-col bg-[#050509]">
+          <section className="flex-1 flex flex-col bg-background">
             {/* Empty state when no chat selected */}
             {!selectedChat && (
               <div className="flex flex-1 flex-col items-center justify-center text-center px-8 gap-4">
@@ -359,7 +394,7 @@ export default function ChatPage() {
                     end‑to‑end encrypted.
                   </p>
                 </div>
-                <button className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium bg-background hover:bg-muted/60 transition">
+                <button className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium bg-background hover:bg-muted/60 transition cursor-pointer">
                   <MessageCircle className="h-4 w-4" />
                   Create or join a room
                 </button>
@@ -370,7 +405,7 @@ export default function ChatPage() {
             {selectedChat && selectedChat && (
               <>
                 {/* Header with name + address */}
-                <div className="px-6 py-3 border-b border-border/60 bg-[#0f0f16] flex items-center justify-between gap-4">
+                <div className="px-6 py-3 border-b border-border/60 bg-card flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative">
                       <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white shadow-md">
@@ -393,25 +428,36 @@ export default function ChatPage() {
 
                   <div className="hidden sm:flex items-center gap-3 text-muted-foreground">
                     {walletConnected && (
-                      <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-[#181822] border border-border/60">
+                      <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-border/60">
                         <Wallet className="h-3.5 w-3.5 text-primary" />
                         <span>Wallet linked</span>
                       </div>
                     )}
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
+                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
                       <Phone className="h-4 w-4" />
                     </button>
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
+                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
                       <Video className="h-4 w-4" />
                     </button>
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+                      <RoomMembersDialog
+                        roomId={selectedChat.id}
+                        open={roomMembersOpen}
+                        onOpenChange={setRoomMembersOpen}
+                        trigger={
+                          <button
+                            type="button"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition"
+                            aria-label="Room members and voting"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        }
+                      />
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 bg-[#050509]">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 bg-background">
                   {messages.map((message) => {
                     const isMine = message.author === "me"
                     return (
@@ -426,8 +472,8 @@ export default function ChatPage() {
                           className={cn(
                             "max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm flex flex-col gap-1",
                             isMine
-                              ? "bg-[#282834] text-foreground rounded-br-md"
-                              : "bg-[#282834] text-foreground rounded-bl-md",
+                              ? "bg-primary/10 text-foreground rounded-br-md"
+                              : "bg-card text-foreground rounded-bl-md",
                           )}
                         >
                           <span className="whitespace-pre-wrap break-words">
@@ -486,11 +532,11 @@ export default function ChatPage() {
                 </div>
 
                 {/* Composer */}
-                <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-[#0f0f16] flex items-center gap-2">
+                <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-card flex items-center gap-2">
                   <input
                     type="text"
                     placeholder="Type a message"
-                    className="flex-1 rounded-full border border-border/60 bg-[#181822] px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70"
+                    className="flex-1 rounded-full border border-border/60 bg-card px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70"
                   />
                   <button className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition">
                     <Send className="h-4 w-4" />

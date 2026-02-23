@@ -7,6 +7,7 @@ import {
 
 const SELECTED_WALLET_ID = "selectedWalletId";
 const WALLET_CONNECTED = "walletConnected";
+const disconnectListeners: Set<() => void> = new Set();
 
 function getSelectedWalletId() {
   if (typeof window === "undefined") return null;
@@ -54,8 +55,13 @@ export async function getPublicKey() {
   if (typeof window === "undefined") return null;
   if (!getSelectedWalletId() || !isWalletConnected()) return null;
   const kitInstance = getKit();
-  const { address } = await kitInstance.getAddress();
-  return address;
+  try {
+    const { address } = await kitInstance.getAddress();
+    return address;
+  } catch (e) {
+    console.error("Failed to get public key:", e);
+    return null;
+  }
 }
 
 export async function autoReconnect() {
@@ -78,11 +84,22 @@ export async function setWallet(walletId: string) {
   }
 }
 
+export function onDisconnect(callback: () => void) {
+  disconnectListeners.add(callback);
+  return () => {
+    disconnectListeners.delete(callback);
+  };
+}
+
 export async function disconnect(callback?: () => Promise<void>) {
   if (typeof window !== "undefined") {
     clearWalletStorage();
     const kitInstance = getKit();
     kitInstance.disconnect();
+
+    // Notify all listeners
+    disconnectListeners.forEach((listener) => listener());
+
     if (callback) await callback();
   }
 }
@@ -91,7 +108,7 @@ export async function connect(callback?: () => Promise<void>) {
   if (typeof window === "undefined") return;
   const kitInstance = getKit();
   await kitInstance.openModal({
-    onWalletSelected: async (option) => {
+    onWalletSelected: async (option: any) => {
       try {
         await setWallet(option.id);
         if (callback) await callback();

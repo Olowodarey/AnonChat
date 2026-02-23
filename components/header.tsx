@@ -6,6 +6,7 @@ import { useState } from "react"
 import ConnectWallet from "./wallet-connector"
 import { ThemeToggle } from "./theme-toggle"
 import { CreateGroupModal } from "./create-group-modal"
+import { JoinGroupModal } from "./join-group-modal"
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -49,6 +50,7 @@ export function Header() {
         <div className="hidden md:flex items-center gap-3">
           <ThemeToggle />
           <CreateGroupModal />
+          <JoinGroupModal />
           {/* Connect Wallet button  */}
           <div
             className="cursor-pointer px-4 py-2 text-sm rounded-lg  text-primary-foreground font-semibold"
@@ -96,6 +98,7 @@ export function Header() {
               </div>
               <div className="flex flex-col gap-2">
                 <CreateGroupModal />
+                <JoinGroupModal />
                 {/* Connect Wallet button  */}
                 <div className="w-full cursor-pointer px-4 py-2 text-sm rounded-lg bg-linear-to-r from-primary to-accent text-primary-foreground font-semibold">
                   <ConnectWallet />

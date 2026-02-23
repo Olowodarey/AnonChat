@@ -19,6 +19,9 @@ I've successfully implemented comprehensive WebSocket support for your AnonChat 
 - Message serialization and event dispatching
 - Connection state management
 - Memory-efficient subscription model
+- `WebSocketClient` class exported as default
+- `getWebSocketClient()` - Singleton instance getter
+- Auto-reconnection with configurable delays
 
 ### 3. **React Hooks** (`lib/websocket/hooks.ts`)
 - `useWebSocket()` - Main hook for WebSocket functionality

@@ -11,7 +11,7 @@
     "dev:ws": "node scripts/start-ws-server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:ws\"",
     "lint": "eslint .",
-    "test": "echo \"No tests specified\"",
+    "test": "node scripts/verify-websocket.js",
     "test:vote-remove": "node scripts/test-vote-remove-api.mjs",
     "start": "next start"
   },

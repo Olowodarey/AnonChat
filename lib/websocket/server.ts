@@ -316,5 +316,5 @@ export function createWebSocketServer(port: number = 3001) {
   return { server, wss }
 }
 
-// Initialize and export
-export const { server, wss } = createWebSocketServer()
+// Export the factory function (don't auto-initialize)
+export default createWebSocketServer

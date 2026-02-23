@@ -6,7 +6,9 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { PresenceIndicator, type PresenceStatus } from "@/components/presence-indicator"
 import ConnectWallet from "@/components/wallet-connector"
+import { RoomMembersDialog } from "@/components/room-members-dialog"
 import { cn } from "@/lib/utils"
+import { getPublicKey, onDisconnect } from "@/app/stellar-wallet-kit"
 import {
   Search,
   MessageCircle,
@@ -44,22 +46,34 @@ type ChatMessage = {
 export default function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [roomMembersOpen, setRoomMembersOpen] = useState(false)
 
-  // TODO: Replace with real wallet state once wired
   const [walletConnected, setWalletConnected] = useState(false)
+  const [userAddress, setUserAddress] = useState<string | null>(null)
 
-  // Detect wallet connection heuristically from DOM changes of ConnectWallet
+  // Sync wallet state properly
   useEffect(() => {
-    const el = document.getElementById("connect-wrap")
-    if (!el) return
+    const checkWallet = async () => {
+      const address = await getPublicKey()
+      setWalletConnected(!!address)
+      setUserAddress(address)
+    }
 
-    const observer = new MutationObserver(() => {
-      const hasAddress = el.textContent && el.textContent.includes("...")
-      setWalletConnected(Boolean(hasAddress))
+    checkWallet()
+
+    // Listen for disconnects
+    const unsubscribe = onDisconnect(() => {
+      setWalletConnected(false)
+      setUserAddress(null)
     })
 
-    observer.observe(el, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
+    // Heuristic: Check on interval or simple event as well since kit doesn't have onConnect yet
+    const interval = setInterval(checkWallet, 1000)
+
+    return () => {
+      unsubscribe()
+      clearInterval(interval)
+    }
   }, [])
 
   const initialChats: ChatPreview[] = useMemo(
@@ -265,7 +279,7 @@ export default function ChatPage() {
                       Connected
                     </span>
                     <span className="text-[11px] font-mono text-foreground">
-                      0×7a3...f2c1
+                      {userAddress ? `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}` : "None"}
                     </span>
                   </div>
                 </div>
@@ -425,9 +439,20 @@ export default function ChatPage() {
                     <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
                       <Video className="h-4 w-4" />
                     </button>
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+                      <RoomMembersDialog
+                        roomId={selectedChat.id}
+                        open={roomMembersOpen}
+                        onOpenChange={setRoomMembersOpen}
+                        trigger={
+                          <button
+                            type="button"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition"
+                            aria-label="Room members and voting"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        }
+                      />
                   </div>
                 </div>
 

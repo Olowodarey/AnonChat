@@ -146,6 +146,7 @@ The database schema is managed through Supabase migrations. SQL migration files 
 
 - `001_create_profiles.sql` - Creates user profiles table
 - `002_create_profile_trigger.sql` - Creates database trigger for profile creation
+- `003_room_members_and_removal_votes.sql` - Room membership and wallet-based removal voting
 
 ### 2. Execute Migrations
 
@@ -156,7 +157,7 @@ The database schema is managed through Supabase migrations. SQL migration files 
 3. Click **New Query**
 4. Copy and paste the contents of `scripts/001_create_profiles.sql`
 5. Click **Run**
-6. Repeat for `scripts/002_create_profile_trigger.sql`
+6. Repeat for `scripts/002_create_profile_trigger.sql` and `scripts/003_room_members_and_removal_votes.sql`
 
 #### Option B: Using Supabase CLI (Advanced)
 

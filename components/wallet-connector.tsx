@@ -2,7 +2,7 @@
 
 import { autoReconnect, connect, disconnect, getPublicKey } from "@/app/stellar-wallet-kit";
 import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ConnectWallet() {
@@ -11,24 +11,30 @@ export default function ConnectWallet() {
   const supabase = createClient();
 
   async function showConnected() {
-    const key = await getPublicKey();
-    if (key) {
-      setPublicKey(key);
+    try {
+      const key = await getPublicKey();
+      if (key) {
+        setPublicKey(key);
 
-      {/* Wallet connection toast */ }
-      toast.success("Wallet connected successfully", {
-        duration: 2000
-      });
-    } else {
+        {/* Wallet connection toast */ }
+        toast.success("Wallet connected successfully", {
+          duration: 2000
+        });
+      } else {
+        setPublicKey(null);
+      }
+    } catch (error) {
+      console.error("Connection error:", error);
+
       setPublicKey(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function showDisconnected() {
     setPublicKey(null);
     setLoading(false);
-
     // Clear Supabase session on disconnect
     try {
       await supabase.auth.signOut();
@@ -45,11 +51,16 @@ export default function ConnectWallet() {
 
   useEffect(() => {
     (async () => {
-      const key = await autoReconnect();
-      if (key) {
-        setPublicKey(key);
+      try {
+        const key = await getPublicKey();
+        if (key) {
+          setPublicKey(key);
+        }
+      } catch (error) {
+        console.error("Initial wallet check failed:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, []);
 

@@ -1,12 +1,15 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import Image from "next/image"
-import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
-import { PresenceIndicator, type PresenceStatus } from "@/components/presence-indicator"
-import ConnectWallet from "@/components/wallet-connector"
-import { cn } from "@/lib/utils"
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
+import {
+  PresenceIndicator,
+  type PresenceStatus,
+} from "@/components/presence-indicator";
+import ConnectWallet from "@/components/wallet-connector";
+import { cn } from "@/lib/utils";
 import {
   Search,
   MessageCircle,
@@ -19,48 +22,53 @@ import {
   Phone,
   Video,
   MoreVertical,
-} from "lucide-react"
+  Paperclip,
+  Smile,
+} from "lucide-react";
 
 type ChatPreview = {
-  id: string
-  name: string
-  address: string
-  lastMessage: string
-  lastSeen: string
-  unreadCount: number
-  status: PresenceStatus
-}
+  id: string;
+  name: string;
+  address: string;
+  lastMessage: string;
+  lastSeen: string;
+  unreadCount: number;
+  status: PresenceStatus;
+};
 
 type ChatMessage = {
-  id: string
-  author: "me" | "them"
-  text: string
-  time: string
-  delivered: boolean
-  read: boolean
-  status?: "sending" | "sent" | "delivered" | "read"
-}
+  id: string;
+  author: "me" | "them";
+  text: string;
+  time: string;
+  delivered: boolean;
+  read: boolean;
+  status?: "sending" | "sent" | "delivered" | "read";
+};
 
 export default function ChatPage() {
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
-  const [query, setQuery] = useState("")
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [messageText, setMessageText] = useState("");
 
-  // TODO: Replace with real wallet state once wired
-  const [walletConnected, setWalletConnected] = useState(false)
+  const [walletConnected, setWalletConnected] = useState(false);
 
-  // Detect wallet connection heuristically from DOM changes of ConnectWallet
   useEffect(() => {
-    const el = document.getElementById("connect-wrap")
-    if (!el) return
+    const el = document.getElementById("connect-wrap");
+    if (!el) return;
 
     const observer = new MutationObserver(() => {
-      const hasAddress = el.textContent && el.textContent.includes("...")
-      setWalletConnected(Boolean(hasAddress))
-    })
+      const hasAddress = el.textContent && el.textContent.includes("...");
+      setWalletConnected(Boolean(hasAddress));
+    });
 
-    observer.observe(el, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
-  }, [])
+    observer.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const chats: ChatPreview[] = useMemo(
     () => [
@@ -93,7 +101,7 @@ export default function ChatPage() {
       },
     ],
     [],
-  )
+  );
 
   const messagesByChat: Record<string, ChatMessage[]> = useMemo(
     () => ({
@@ -173,30 +181,28 @@ export default function ChatPage() {
       ],
     }),
     [],
-  )
+  );
 
   const getDeliveryStatus = (message: ChatMessage) => {
-    if (message.status) return message.status
-    if (message.read) return "read"
-    if (message.delivered) return "delivered"
-    return "sent"
-  }
+    if (message.status) return message.status;
+    if (message.read) return "read";
+    if (message.delivered) return "delivered";
+    return "sent";
+  };
 
   const filteredChats = useMemo(() => {
-    if (!query.trim()) return chats
-    const q = query.toLowerCase()
+    if (!query.trim()) return chats;
+    const q = query.toLowerCase();
     return chats.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.address.toLowerCase().includes(q),
-    )
-  }, [chats, query])
+        c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q),
+    );
+  }, [chats, query]);
 
   const selectedChat = selectedChatId
-    ? chats.find((c) => c.id === selectedChatId) ?? null
-    : null
-
-  const messages = selectedChat ? messagesByChat[selectedChat.id] ?? [] : []
+    ? (chats.find((c) => c.id === selectedChatId) ?? null)
+    : null;
+  const messages = selectedChat ? (messagesByChat[selectedChat.id] ?? []) : [];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -206,7 +212,6 @@ export default function ChatPage() {
         <div className="w-full max-w-6xl h-[min(82vh,760px)] bg-[#050509] border border-border/60 rounded-2xl shadow-lg overflow-hidden flex">
           {/* Sidebar */}
           <aside className="w-[340px] border-r border-border/60 bg-[#0a0a10] flex flex-col">
-            {/* Sidebar header */}
             <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-3 bg-[#0f0f16]">
               <div className="flex items-center gap-2">
                 <div className="relative h-8 w-8 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
@@ -232,7 +237,6 @@ export default function ChatPage() {
               </button>
             </div>
 
-            {/* Wallet + share row (shows when wallet connected) */}
             {walletConnected && (
               <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between bg-[#12121a] gap-3">
                 <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -255,7 +259,6 @@ export default function ChatPage() {
               </div>
             )}
 
-            {/* Search + chats header */}
             <div className="px-4 pt-3 pb-2 space-y-2 border-b border-border/60 bg-[#11111a]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="font-semibold tracking-wide uppercase text-foreground">
@@ -269,111 +272,84 @@ export default function ChatPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search ENS or Wallet"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#181822] text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70 transition"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#181822] text-sm border border-border/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 placeholder:text-muted-foreground/70 transition"
                 />
               </div>
             </div>
 
-            {/* Chat list */}
             <div className="flex-1 overflow-y-auto">
               {filteredChats.length === 0 ? (
                 <div className="h-full flex items-center justify-center px-6 text-xs text-muted-foreground text-center">
-                  No rooms match this search. Try a different room name or
-                  wallet address.
+                  No rooms match this search.
                 </div>
               ) : (
                 <ul className="py-1">
-                  {filteredChats.map((chat) => {
-                    const isSelected = chat.id === selectedChatId
-                    return (
-                      <li key={chat.id}>
-                        <button
-                          onClick={() => setSelectedChatId(chat.id)}
-                          className={cn(
-                            "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-[#181824] transition",
-                            isSelected &&
-                              "bg-[#19192a] border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]",
-                          )}
-                        >
-                          <div className="relative">
-                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white shadow-md">
-                              {chat.name.charAt(0).toUpperCase()}
-                            </div>
-                            <PresenceIndicator
-                              status={chat.status}
-                              className="absolute -bottom-0.5 -right-0.5 scale-90"
-                            />
+                  {filteredChats.map((chat) => (
+                    <li key={chat.id}>
+                      <button
+                        onClick={() => setSelectedChatId(chat.id)}
+                        className={cn(
+                          "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-[#181824] transition",
+                          chat.id === selectedChatId &&
+                            "bg-[#19192a] border-l-2 border-primary/80",
+                        )}
+                      >
+                        <div className="relative">
+                          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white">
+                            {chat.name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium truncate">
-                                {chat.name}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                {chat.lastSeen}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between gap-2 mt-0.5">
-                              <p className="text-xs text-muted-foreground truncate">
-                                {chat.lastMessage}
-                              </p>
-                              {chat.unreadCount > 0 && (
-                                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] min-w-[18px] h-[18px] px-1">
-                                  {chat.unreadCount}
-                                </span>
-                              )}
-                            </div>
+                          <PresenceIndicator
+                            status={chat.status}
+                            className="absolute -bottom-0.5 -right-0.5 scale-90"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium truncate">
+                              {chat.name}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {chat.lastSeen}
+                            </span>
                           </div>
-                        </button>
-                      </li>
-                    )
-                  })}
+                          <p className="text-xs text-muted-foreground truncate">
+                            {chat.lastMessage}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
 
-            {/* Hidden wallet connector just to mirror status into chat UI */}
             <div className="px-4 py-2 border-t border-border/60 bg-[#0f0f16] text-[11px] text-muted-foreground flex items-center justify-between gap-2">
-              <span className="truncate">
-                Wallet status for this device:
-              </span>
+              <span className="truncate">Wallet status for this device:</span>
               <ConnectWallet />
             </div>
           </aside>
 
           {/* Main chat area */}
           <section className="flex-1 flex flex-col bg-[#050509]">
-            {/* Empty state when no chat selected */}
-            {!selectedChat && (
+            {!selectedChat ? (
               <div className="flex flex-1 flex-col items-center justify-center text-center px-8 gap-4">
                 <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary border border-primary/20">
                   <MessageCircle className="h-8 w-8" />
                 </div>
-                <div className="space-y-1 max-w-md">
-                  <h2 className="text-xl font-semibold tracking-tight">
-                    Open a chat to get started
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Just like WhatsApp on desktop, your conversations appear
-                    here once you pick a room from the left. Everything stays
-                    end‑to‑end encrypted.
-                  </p>
-                </div>
-                <button className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium bg-background hover:bg-muted/60 transition">
-                  <MessageCircle className="h-4 w-4" />
-                  Create or join a room
-                </button>
+                <h2 className="text-xl font-semibold tracking-tight">
+                  Open a chat to get started
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Everything stays end‑to‑end encrypted.
+                </p>
               </div>
-            )}
-
-            {/* Conversation view */}
-            {selectedChat && selectedChat && (
+            ) : (
               <>
-                {/* Header with name + address */}
+                {/* Header */}
                 <div className="px-6 py-3 border-b border-border/60 bg-[#0f0f16] flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white shadow-md">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-semibold text-white">
                         {selectedChat.name.charAt(0).toUpperCase()}
                       </div>
                       <PresenceIndicator
@@ -390,21 +366,14 @@ export default function ChatPage() {
                       </div>
                     </div>
                   </div>
-
                   <div className="hidden sm:flex items-center gap-3 text-muted-foreground">
-                    {walletConnected && (
-                      <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-[#181822] border border-border/60">
-                        <Wallet className="h-3.5 w-3.5 text-primary" />
-                        <span>Wallet linked</span>
-                      </div>
-                    )}
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
+                    <button className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-[#181822]">
                       <Phone className="h-4 w-4" />
                     </button>
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
+                    <button className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-[#181822]">
                       <Video className="h-4 w-4" />
                     </button>
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#181822] transition">
+                    <button className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-[#181822]">
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </div>
@@ -413,7 +382,8 @@ export default function ChatPage() {
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 bg-[#050509]">
                   {messages.map((message) => {
-                    const isMine = message.author === "me"
+                    const isMine = message.author === "me";
+                    const status = getDeliveryStatus(message);
                     return (
                       <div
                         key={message.id}
@@ -424,10 +394,10 @@ export default function ChatPage() {
                       >
                         <div
                           className={cn(
-                            "max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm flex flex-col gap-1",
+                            "max-w-[70%] rounded-2xl px-4 py-2.5 text-sm flex flex-col gap-1",
                             isMine
-                              ? "bg-[#282834] text-foreground rounded-br-md"
-                              : "bg-[#282834] text-foreground rounded-bl-md",
+                              ? "bg-[#282834] rounded-br-md"
+                              : "bg-[#181822] border border-border/40 rounded-bl-md",
                           )}
                         >
                           <span className="whitespace-pre-wrap break-words">
@@ -437,64 +407,76 @@ export default function ChatPage() {
                             <span>{message.time}</span>
                             {isMine && (
                               <span className="inline-flex items-center gap-1">
-                                {(() => {
-                                  const status = getDeliveryStatus(message)
-                                  if (status === "sending") {
-                                    return (
-                                      <Clock className="h-3 w-3 text-muted-foreground/80 animate-pulse" />
-                                    )
-                                  }
-                                  if (status === "sent") {
-                                    return (
-                                      <Check className="h-3 w-3 text-muted-foreground/80" />
-                                    )
-                                  }
-                                  return (
-                                    <CheckCheck
-                                      className={cn(
-                                        "h-3 w-3",
-                                        status === "read"
-                                          ? "text-green-400"
-                                          : "text-muted-foreground/80",
-                                      )}
-                                    />
-                                  )
-                                })()}
+                                {status === "sending" ? (
+                                  <Clock className="h-3 w-3 animate-pulse" />
+                                ) : status === "sent" ? (
+                                  <Check className="h-3 w-3" />
+                                ) : (
+                                  <CheckCheck
+                                    className={cn(
+                                      "h-3 w-3",
+                                      status === "read" && "text-green-400",
+                                    )}
+                                  />
+                                )}
                                 <span
                                   className={cn(
-                                    "text-[10px]",
-                                    getDeliveryStatus(message) === "read"
-                                      ? "text-green-400"
-                                      : "text-muted-foreground/80",
+                                    status === "read" && "text-green-400",
                                   )}
                                 >
-                                  {(() => {
-                                    const status = getDeliveryStatus(message)
-                                    if (status === "sending") return "Sending"
-                                    if (status === "sent") return "Sent"
-                                    if (status === "delivered") return "Delivered"
-                                    return "Seen"
-                                  })()}
+                                  {status === "read"
+                                    ? "Seen"
+                                    : status.charAt(0).toUpperCase() +
+                                      status.slice(1)}
                                 </span>
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                    )
+                    );
                   })}
                 </div>
 
-                {/* Composer */}
-                <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-[#0f0f16] flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Type a message"
-                    className="flex-1 rounded-full border border-border/60 bg-[#181822] px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70"
-                  />
-                  <button className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition">
-                    <Send className="h-4 w-4" />
-                  </button>
+                {/* ENHANCED COMPOSER SECTION */}
+                <div className="px-4 sm:px-6 py-4 border-t border-border/60 bg-[#0f0f16] flex flex-col gap-3">
+                  {/* Branded Accessibility Label */}
+                  <label
+                    htmlFor="chat-input"
+                    className="text-[10px] font-bold uppercase tracking-widest text-[#634fd1] ml-1 opacity-90"
+                  >
+                    Send message to {selectedChat.name}
+                  </label>
+
+                  <div className="flex items-center gap-3">
+                    <button className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-[#181822] hover:text-[#887cc9] transition">
+                      <Paperclip className="h-5 w-5" />
+                    </button>
+
+                    <div className="relative flex-1">
+                      <input
+                        id="chat-input"
+                        type="text"
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        placeholder="Type a message..."
+                        className="w-full rounded-xl border border-border/60 bg-[#181822] pl-4 pr-12 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#887cc9]/40 focus:border-[#887cc9] placeholder:text-muted-foreground/50 transition-all shadow-inner"
+                      />
+                      <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#887cc9] transition">
+                        <Smile className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (messageText.trim()) setMessageText("");
+                      }}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#634fd1] text-black hover:bg-[#887cc9] shadow-[0_0_15px_rgba(79,209,197,0.2)] transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!messageText.trim()}
+                    >
+                      <Send className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -504,5 +486,5 @@ export default function ChatPage() {
 
       <Footer />
     </div>
-  )
+  );
 }

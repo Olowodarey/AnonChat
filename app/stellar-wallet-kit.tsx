@@ -31,7 +31,7 @@ function getKit(): StellarWalletsKit {
   if (kit) return kit;
 
   if (typeof window === "undefined") {
-    // Return a proxy or dummy object for SSR if needed, 
+    // Return a proxy or dummy object for SSR if needed,
     // but here we just ensure functions check for window.
     throw new Error("StellarWalletsKit should only be used in the browser");
   }
@@ -49,6 +49,21 @@ export async function signTransaction(...args: any[]) {
   const kitInstance = getKit();
   // @ts-ignore
   return kitInstance.signTransaction(...args);
+}
+
+/**
+ * Signs an arbitrary message (nonce) with the connected Stellar wallet.
+ * Returns the Ed25519 signature as a lowercase hex string.
+ */
+export async function signMessage(message: string): Promise<string> {
+  const kitInstance = getKit();
+  const messageBytes = new TextEncoder().encode(message);
+  // @ts-ignore — signMessage is available in @creit.tech/stellar-wallets-kit ≥ 1.4
+  const { signedMessage } = await kitInstance.signMessage(messageBytes);
+  // signedMessage is a Uint8Array — convert to hex for transport
+  return Array.from(signedMessage as unknown as Uint8Array)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export async function getPublicKey() {

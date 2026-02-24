@@ -122,12 +122,14 @@ export async function POST(request: NextRequest) {
     let stellarTxHash: string | null = null;
     let blockchainSubmitted = false;
     let explorerUrl: string | null = null;
+    let actualFeeCharged: string | null = null;
 
     try {
       const result = await submitMetadataHash(room.id, metadataHash, max_fee);
 
       if (result.success && result.transactionHash) {
         stellarTxHash = result.transactionHash;
+        actualFeeCharged = result.feeCharged || null;
         blockchainSubmitted = true;
         explorerUrl = getTransactionExplorerUrl(result.transactionHash);
 
@@ -191,6 +193,7 @@ export async function POST(request: NextRequest) {
         blockchain: {
           submitted: blockchainSubmitted,
           transactionHash: stellarTxHash || undefined,
+          feeCharged: actualFeeCharged || undefined,
           explorerUrl: explorerUrl || undefined,
         },
       },

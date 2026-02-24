@@ -96,11 +96,13 @@ export async function submitMetadataHash(
     ]);
 
     const duration = Date.now() - startTime;
+    const feeCharged = (result as any).fee_charged ? (result as any).fee_charged.toString() : feeToUse.toString();
 
     logBlockchainOperation("info", "Blockchain transaction successful", {
       groupId,
       metadataHash,
       transactionHash: result.hash,
+      feeCharged,
       duration,
       ledger: result.ledger,
     }, correlationId);
@@ -108,6 +110,7 @@ export async function submitMetadataHash(
     return {
       success: true,
       transactionHash: result.hash,
+      feeCharged,
     };
   } catch (error: any) {
     const duration = Date.now() - startTime;

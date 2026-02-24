@@ -92,7 +92,7 @@ export function CreateGroupModal() {
         throw new Error("Failed to create group");
       }
 
-      const { room } = await res.json();
+      const { room, blockchain } = await res.json();
 
       trackActivity(publicKey, 'group');
 
@@ -110,7 +110,12 @@ export function CreateGroupModal() {
         window.dispatchEvent(new CustomEvent("roomCreated", { detail: newRoom }));
       }
 
-      toast.success(`Group "${groupName}" created successfully!`);
+      if (blockchain?.feeCharged) {
+        const xlmFee = (Number(blockchain.feeCharged) / 1e7).toFixed(7);
+        toast.success(`Group "${groupName}" created successfully! Network charged: ${xlmFee} XLM.`);
+      } else {
+        toast.success(`Group "${groupName}" created successfully!`);
+      }
       setGroupName("");
       setIsOpen(false);
     } catch (error) {

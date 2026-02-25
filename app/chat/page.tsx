@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -30,6 +30,13 @@ import {
 } from "lucide-react";
 import { calculateReputation, trackActivity } from "@/lib/reputation";
 import { CONFIG } from "@/lib/config";
+import {
+  useRealtimeChat,
+  TypingIndicatorComponent,
+  useDebouncedTyping,
+  type TypingIndicator,
+} from "@/lib/websocket/chat-hooks";
+import { useWebSocketSend } from "@/lib/websocket/hooks";
 
 type ChatPreview = {
   id: string;
@@ -227,15 +234,27 @@ export default function ChatPage() {
   };
 
   const handleSelectChat = async (id: string) => {
-    setSelectedChatId(id);
-    await markRoomRead(id);
-    setChats((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)),
-    );
-  };
+    setSelectedChatId(id)
+    // update server and local unread count
+    await markRoomRead(id)
+    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
+  }
+
+  // Listen for new room creation
+  useEffect(() => {
+    const handleRoomCreated = (e: any) => {
+      const newRoom = e.detail
+      setChats(prev => [newRoom, ...prev])
+      setSelectedChatId(newRoom.id)
+    }
+    window.addEventListener("roomCreated", handleRoomCreated)
+    return () => window.removeEventListener("roomCreated", handleRoomCreated)
+  }, [])
 
   const handleSendMessage = () => {
-    if (!inputMessage.trim() || !selectedChatId) return;
+    if (!inputMessage.trim() || !selectedChatId) return
+    onStopTypingImmediate()
+
     const newMessage: ChatMessage = {
       id: `m${Date.now()}`,
       author: "me",
@@ -297,13 +316,66 @@ export default function ChatPage() {
     : null;
   const messages = selectedChat ? (messagesByChat[selectedChat.id] ?? []) : [];
 
+  // Realtime typing indicator for selected room
+  const roomIdForRealtime = selectedChatId ?? "";
+  const { typingUsers, handlers: realtimeHandlers } = useRealtimeChat(
+    roomIdForRealtime,
+    currentPublicKey ?? undefined,
+  );
+  const { authenticate } = useWebSocketSend();
+  const { onTypingActivity, onStopTypingImmediate } = useDebouncedTyping(
+    roomIdForRealtime,
+    realtimeHandlers.typing,
+    realtimeHandlers.stopTyping,
+  );
+
+  // Authenticate WebSocket when wallet is connected (required for typing to work)
+  useEffect(() => {
+    if (!currentPublicKey) return;
+    const displayName =
+      currentPublicKey.slice(0, 6) + "..." + currentPublicKey.slice(-4);
+    authenticate(currentPublicKey, currentPublicKey, `Wallet_${displayName}`);
+  }, [currentPublicKey, authenticate]);
+
+  // Other users typing (exclude current user)
+  const otherUsersTyping = useMemo(
+    () => typingUsers.filter((u) => u.userId !== currentPublicKey),
+    [typingUsers, currentPublicKey],
+  );
+
+  // Mock typing for dummy chat "1" (Anon Whisper) so the indicator is visible in the UI
+  const MOCK_TYPING_CHAT_ID = "1";
+  const mockTypingUser: TypingIndicator = useMemo(
+    () => ({
+      userId: "mock-typing-dummy",
+      displayName: "GABC...1234",
+      roomId: MOCK_TYPING_CHAT_ID,
+    }),
+    [],
+  );
+  const displayTypingUsers = useMemo(() => {
+    const fromRealtime = otherUsersTyping;
+    if (selectedChatId === MOCK_TYPING_CHAT_ID) {
+      return [mockTypingUser, ...fromRealtime];
+    }
+    return fromRealtime;
+  }, [selectedChatId, otherUsersTyping, mockTypingUser]);
+
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputMessage(e.target.value);
+      onTypingActivity();
+    },
+    [onTypingActivity],
+  );
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       <main className="flex-1 pt-24 pb-8 px-2 sm:px-4 lg:px-8 flex justify-center">
         <div className="w-full max-w-6xl h-[min(82vh,760px)] bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden flex">
           {/* Sidebar */}
-          <aside className="w-[340px] border-r border-border/60 bg-card flex flex-col">
+          <aside className="w-[340px] border-r border-border/60 bg-card flex flex-col shrink-0">
             <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-3 bg-card">
               <div className="flex items-center gap-2">
                 <div className="relative h-8 w-8 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
@@ -377,7 +449,7 @@ export default function ChatPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search ENS or Wallet"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-card text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:text-muted-foreground/70 transition"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-card text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70 transition"
                 />
               </div>
             </div>
@@ -398,7 +470,7 @@ export default function ChatPage() {
                           className={cn(
                             "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-muted/10 transition cursor-pointer",
                             isSelected &&
-                              "bg-primary/5 border-l-2 border-primary/80",
+                              "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
                           )}
                         >
                           <div className="relative">
@@ -443,31 +515,28 @@ export default function ChatPage() {
           </aside>
 
           {/* Main chat area */}
-          <section className="flex-1 flex flex-col bg-background">
+          <section className="flex-1 flex flex-col bg-background min-w-0">
             {!selectedChat && (
-              <div className="flex flex-1 flex-col items-center justify-center text-center px-8 gap-4">
-                <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary border border-primary/20">
-                  <MessageCircle className="h-8 w-8" />
+              <div className="flex flex-1 items-center justify-center px-8">
+                <div className="flex flex-col items-center text-center gap-4 max-w-md">
+                  <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary border border-primary/20">
+                    <MessageCircle className="h-8 w-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-semibold tracking-tight">
+                      Open a chat to get started
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Pick a room from the left. Everything stays end‑to‑end encrypted.
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1 max-w-md">
-                  <h2 className="text-xl font-semibold tracking-tight">
-                    Open a chat to get started
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Your conversations appear here once you pick a room from the
-                    left. Everything stays end-to-end encrypted.
-                  </p>
-                </div>
-                <button className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium hover:bg-muted/60 transition cursor-pointer">
-                  <MessageCircle className="h-4 w-4" />
-                  Create or join a room
-                </button>
               </div>
             )}
 
             {selectedChat && (
               <>
-                {/* Chat header */}
+                {/* Header */}
                 <div className="px-6 py-3 border-b border-border/60 bg-card flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative">
@@ -489,16 +558,21 @@ export default function ChatPage() {
                     </div>
                   </div>
                   <div className="hidden sm:flex items-center gap-3 text-muted-foreground">
-                    {walletConnected &&
-                      CONFIG.EXPERIMENTAL_REPUTATION_ENABLED && (
-                        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
-                          <Star className="h-3 w-3 fill-primary" />
-                          <span className="font-bold">
-                            {reputationScore} Rep
-                          </span>
+                    {walletConnected && (
+                      <div className="flex items-center gap-3">
+                        {CONFIG.EXPERIMENTAL_REPUTATION_ENABLED && (
+                          <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                            <Star className="h-3 w-3 fill-primary" />
+                            <span className="font-bold">{reputationScore} Rep</span>
+                          </div>
+                        )}
+                        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary/10 border border-border/60">
+                          <Wallet className="h-3.5 w-3.5 text-primary" />
+                          <span>Wallet linked</span>
                         </div>
-                      )}
-                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
+                      </div>
+                    )}
+                    <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition" type="button">
                       <Phone className="h-4 w-4" />
                     </button>
                     <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted/60 transition">
@@ -581,40 +655,26 @@ export default function ChatPage() {
                   <div ref={bottomRef} />
                 </div>
 
+                {/* Typing indicator */}
+                <TypingIndicatorComponent typingUsers={displayTypingUsers} />
+
                 {/* Composer */}
-                <div className="px-4 sm:px-6 py-4 border-t border-border/60 bg-card flex flex-col gap-3">
-                  <label
-                    htmlFor="chat-input"
-                    className="text-[10px] font-bold uppercase tracking-widest text-primary ml-1 opacity-90"
+                <div className="px-4 sm:px-6 py-3 border-t border-border/60 bg-card flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={inputMessage}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyPress}
+                    onBlur={onStopTypingImmediate}
+                    placeholder="Type a message"
+                    className="flex-1 rounded-full border border-border/60 bg-card px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition"
                   >
-                    Send message to {selectedChat.name}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <button className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted/60 transition">
-                      <Paperclip className="h-5 w-5" />
-                    </button>
-                    <div className="relative flex-1">
-                      <input
-                        id="chat-input"
-                        type="text"
-                        value={inputMessage}
-                        onChange={(e) => setInputMessage(e.target.value)}
-                        onKeyDown={handleKeyPress}
-                        placeholder="Type a message..."
-                        className="w-full rounded-xl border border-border/60 bg-card pl-4 pr-12 py-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 placeholder:text-muted-foreground/50 transition-all"
-                      />
-                      <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition">
-                        <Smile className="h-5 w-5" />
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={!inputMessage.trim()}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Send className="h-5 w-5" />
-                    </button>
-                  </div>
+                    <Send className="h-4 w-4" />
+                  </button>
                 </div>
               </>
             )}

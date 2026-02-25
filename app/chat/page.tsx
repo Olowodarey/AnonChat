@@ -10,6 +10,7 @@ import {
 } from "@/components/presence-indicator";
 import ConnectWallet from "@/components/wallet-connector";
 import { RoomMembersDialog } from "@/components/room-members-dialog";
+import { ChatEmptyState } from "@/components/chat-empty-state";
 import { cn } from "@/lib/utils";
 import { getPublicKey, onDisconnect } from "@/app/stellar-wallet-kit";
 import {
@@ -482,23 +483,7 @@ export default function ChatPage() {
 
           {/* Main chat area */}
           <section className="flex-1 flex flex-col bg-background min-w-0">
-            {!selectedChat && (
-              <div className="flex flex-1 items-center justify-center px-8">
-                <div className="flex flex-col items-center text-center gap-4 max-w-md">
-                  <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary border border-primary/20">
-                    <MessageCircle className="h-8 w-8" />
-                  </div>
-                  <div className="space-y-1">
-                    <h2 className="text-xl font-semibold tracking-tight">
-                      Open a chat to get started
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Pick a room from the left. Everything stays end‑to‑end encrypted.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            {!selectedChat && <ChatEmptyState />}
 
             {/* Conversation view */}
             {selectedChat && (

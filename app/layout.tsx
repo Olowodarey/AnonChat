@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
+import { WebSocketProvider } from "@/lib/websocket/context"
 // installed the proper toast module
 import { Toaster } from "react-hot-toast"
 import "./globals.css"
@@ -39,7 +40,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <WebSocketProvider>
+            {children}
+          </WebSocketProvider>
         </ThemeProvider>
         <Analytics />
         

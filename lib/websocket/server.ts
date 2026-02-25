@@ -242,6 +242,7 @@ export function createWebSocketServer(port: number = 3001) {
             broadcastToRoom(typingRoomId, {
               type: "user_typing",
               payload: {
+                roomId: typingRoomId,
                 userId: connection.userId,
                 displayName: connection.user?.displayName,
               },
@@ -255,6 +256,7 @@ export function createWebSocketServer(port: number = 3001) {
             broadcastToRoom(stopTypingRoomId, {
               type: "user_stop_typing",
               payload: {
+                roomId: stopTypingRoomId,
                 userId: connection.userId,
               },
               timestamp: Date.now(),

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import { useWebSocketSend, useWebSocketMessage } from "@/lib/websocket/hooks"
 import { WebSocketMessage } from "@/types/websocket"
 import { toast } from "sonner"
@@ -15,7 +15,7 @@ interface RealtimeMessageUpdate {
   status: "sending" | "sent" | "delivered"
 }
 
-interface TypingIndicator {
+export interface TypingIndicator {
   userId: string
   displayName: string
   roomId: string
@@ -183,25 +183,91 @@ export function useRealtimeChat(roomId: string, userId?: string) {
   }
 }
 
-export function TypingIndicatorComponent({ typingUsers }: { typingUsers: TypingIndicator[] }) {
-  if (typingUsers.length === 0) return null
+const TYPING_DEBOUNCE_MS = 300
+const STOP_TYPING_IDLE_MS = 2000
 
-  const names = typingUsers.map((u) => u.displayName).join(", ")
+export function useDebouncedTyping(
+  roomId: string,
+  notifyTyping: (roomId: string) => void,
+  notifyStopTyping: (roomId: string) => void,
+) {
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stopTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearTimers = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = null
+    }
+    if (stopTypingTimeoutRef.current) {
+      clearTimeout(stopTypingTimeoutRef.current)
+      stopTypingTimeoutRef.current = null
+    }
+  }, [])
+
+  const onTypingActivity = useCallback(() => {
+    if (!roomId) return
+    clearTimers()
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    typingTimeoutRef.current = setTimeout(() => {
+      typingTimeoutRef.current = null
+      notifyTyping(roomId)
+      stopTypingTimeoutRef.current = setTimeout(() => {
+        stopTypingTimeoutRef.current = null
+        notifyStopTyping(roomId)
+      }, STOP_TYPING_IDLE_MS)
+    }, TYPING_DEBOUNCE_MS)
+  }, [roomId, notifyTyping, notifyStopTyping, clearTimers])
+
+  const onStopTypingImmediate = useCallback(() => {
+    clearTimers()
+    if (roomId) notifyStopTyping(roomId)
+  }, [roomId, notifyStopTyping, clearTimers])
+
+  useEffect(() => clearTimers, [clearTimers])
+
+  return { onTypingActivity, onStopTypingImmediate }
+}
+
+/** Format display name for typing indicator: "Wallet_xxx" style */
+function formatWalletLabel(user: TypingIndicator): string {
+  if (user.displayName?.trim()) {
+    const name = user.displayName.trim()
+    return name.startsWith("Wallet_") ? name : `Wallet_${name.replace(/\s/g, "_").slice(0, 12)}`
+  }
+  return `Wallet_${user.userId.slice(0, 8)}`
+}
+
+export const TypingIndicatorComponent = memo(function TypingIndicatorComponent({
+  typingUsers,
+}: {
+  typingUsers: TypingIndicator[]
+}) {
+  const names = useMemo(
+    () => typingUsers.map(formatWalletLabel).join(", "),
+    [typingUsers],
+  )
   const isPlural = typingUsers.length > 1
 
+  if (typingUsers.length === 0) return null
+
   return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground px-4">
-      <div className="flex gap-1">
-        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce" />
-        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce delay-100" />
-        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce delay-200" />
+    <div
+      className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-1.5 min-h-[2rem]"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex gap-1 shrink-0" aria-hidden>
+        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:0ms]" />
+        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:150ms]" />
+        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:300ms]" />
       </div>
-      <span>
-        {names} {isPlural ? "are" : "is"} typing...
+      <span className="truncate">
+        {names} {isPlural ? "are" : "is"} typing…
       </span>
     </div>
   )
-}
+})
 
 export function RoomUsersList({ users }: { users: string[] }) {
   if (users.length === 0) return null

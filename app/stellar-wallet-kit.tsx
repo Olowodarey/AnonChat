@@ -1,8 +1,12 @@
 import {
-  allowAllModules,
   FREIGHTER_ID,
   StellarWalletsKit,
-  WalletNetwork,
+  RabetNetwork,
+  FreighterModule,
+  AlbedoModule,
+  RabetModule,
+  LobstrModule,
+  HanaModule,
 } from "@creit.tech/stellar-wallets-kit";
 
 const SELECTED_WALLET_ID = "selectedWalletId";
@@ -27,41 +31,47 @@ function clearWalletStorage() {
 
 let kit: StellarWalletsKit | null = null;
 
-function getKit(): StellarWalletsKit {
+function getKit(): StellarWalletsKit | null {
+  if (typeof window === "undefined") return null;
   if (kit) return kit;
 
-  if (typeof window === "undefined") {
-    // Return a proxy or dummy object for SSR if needed,
-    // but here we just ensure functions check for window.
-    throw new Error("StellarWalletsKit should only be used in the browser");
+  try {
+    kit = new StellarWalletsKit({
+      modules: [
+        new FreighterModule(),
+        new AlbedoModule(),
+        new RabetModule(),
+        new LobstrModule(),
+        new HanaModule(),
+      ],
+      network: RabetNetwork.PUBLIC,
+      selectedWalletId: getSelectedWalletId() ?? FREIGHTER_ID,
+    });
+  } catch (e) {
+    console.error("Failed to initialize StellarWalletsKit:", e);
+    return null;
   }
-
-  kit = new StellarWalletsKit({
-    modules: allowAllModules(),
-    network: WalletNetwork.PUBLIC,
-    selectedWalletId: getSelectedWalletId() ?? FREIGHTER_ID,
-  });
 
   return kit;
 }
 
 export async function signTransaction(...args: any[]) {
   const kitInstance = getKit();
+  if (!kitInstance) return null;
   // @ts-ignore
   return kitInstance.signTransaction(...args);
 }
 
-/**
- * Signs an arbitrary message (nonce) with the connected Stellar wallet.
- * Returns the Ed25519 signature as a lowercase hex string.
- */
 export async function signMessage(message: string): Promise<string> {
   const kitInstance = getKit();
-  const messageBytes = new TextEncoder().encode(message);
-  // @ts-ignore — signMessage is available in @creit.tech/stellar-wallets-kit ≥ 1.4
-  const { signedMessage } = await kitInstance.signMessage(messageBytes);
-  // signedMessage is a Uint8Array — convert to hex for transport
-  return Array.from(signedMessage as unknown as Uint8Array)
+  if (!kitInstance) return "";
+
+  const { signedMessage } = await kitInstance.signMessage(message);
+
+  // signedMessage is base64 string → convert to hex
+  const decoded = Uint8Array.from(atob(signedMessage), (c) => c.charCodeAt(0));
+
+  return Array.from(decoded)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
@@ -69,7 +79,10 @@ export async function signMessage(message: string): Promise<string> {
 export async function getPublicKey() {
   if (typeof window === "undefined") return null;
   if (!getSelectedWalletId() || !isWalletConnected()) return null;
+
   const kitInstance = getKit();
+  if (!kitInstance) return null;
+
   try {
     const { address } = await kitInstance.getAddress();
     return address;
@@ -94,7 +107,10 @@ export async function setWallet(walletId: string) {
   if (typeof window !== "undefined") {
     localStorage.setItem(SELECTED_WALLET_ID, walletId);
     localStorage.setItem(WALLET_CONNECTED, "true");
+
     const kitInstance = getKit();
+    if (!kitInstance) return;
+
     kitInstance.setWallet(walletId);
   }
 }
@@ -109,10 +125,12 @@ export function onDisconnect(callback: () => void) {
 export async function disconnect(callback?: () => Promise<void>) {
   if (typeof window !== "undefined") {
     clearWalletStorage();
+
     const kitInstance = getKit();
+    if (!kitInstance) return;
+
     kitInstance.disconnect();
 
-    // Notify all listeners
     disconnectListeners.forEach((listener) => listener());
 
     if (callback) await callback();
@@ -121,7 +139,10 @@ export async function disconnect(callback?: () => Promise<void>) {
 
 export async function connect(callback?: () => Promise<void>) {
   if (typeof window === "undefined") return;
+
   const kitInstance = getKit();
+  if (!kitInstance) return;
+
   await kitInstance.openModal({
     onWalletSelected: async (option: any) => {
       try {
@@ -130,6 +151,7 @@ export async function connect(callback?: () => Promise<void>) {
       } catch (e) {
         console.error(e);
       }
+
       return option.id;
     },
   });

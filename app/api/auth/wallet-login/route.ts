@@ -8,7 +8,7 @@ async function deterministicPassword(walletAddress: string): Promise<string> {
 
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(secret),
+    new TextEncoder().encode(secret) as any,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -16,7 +16,7 @@ async function deterministicPassword(walletAddress: string): Promise<string> {
   const sig = await crypto.subtle.sign(
     "HMAC",
     keyMaterial,
-    new TextEncoder().encode(walletAddress),
+    new TextEncoder().encode(walletAddress) as any,
   );
   return Buffer.from(sig).toString("hex");
 }

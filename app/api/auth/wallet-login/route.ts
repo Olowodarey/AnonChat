@@ -1,40 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { consumeNonce, verifyWalletSignature } from "@/lib/auth/stellar-verify";
 import { createClient } from "@/lib/supabase/server";
+import { deterministicPassword } from "@/lib/auth/password";
+import { validateWalletAddressWithMessage } from "@/lib/auth/validation";
 
-async function deterministicPassword(walletAddress: string): Promise<string> {
-  const secret = process.env.WALLET_AUTH_SECRET;
-  if (!secret) throw new Error("WALLET_AUTH_SECRET env var is not set");
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret) as any,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    keyMaterial,
-    new TextEncoder().encode(walletAddress) as any,
-  );
-  return Buffer.from(sig).toString("hex");
-}
-
+/**
+ * POST /api/auth/wallet-login
+ * Body: { walletAddress: string, signature: string }
+ *
+ * Authenticates a user by verifying their wallet signature.
+ * The signature must be created by signing the nonce with the wallet's private key.
+ * 
+ * Requirements: 1.1-1.6, 2.4, 3.1-3.4, 4.1-4.6, 5.1-5.6, 6.1-6.6, 7.1-7.5
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { walletAddress, signature } = body ?? {};
 
     // ── 1. Input validation ──────────────────────────────────────────────────
-    if (!walletAddress || typeof walletAddress !== "string") {
+    // Validate wallet address format
+    const walletValidationError = validateWalletAddressWithMessage(walletAddress);
+    if (walletValidationError) {
+      console.warn(`[wallet-auth] /api/auth/wallet-login validation failed: ${walletValidationError}`);
       return NextResponse.json(
-        { error: "walletAddress is required" },
+        { error: walletValidationError },
         { status: 400 },
       );
     }
 
-    if (!signature || typeof signature !== "string") {
+    // Validate signature is present
+    if (!signature || typeof signature !== "string" || signature.trim() === "") {
+      console.warn(`[wallet-auth] /api/auth/wallet-login validation failed: signature is required`);
       return NextResponse.json(
         { error: "signature is required" },
         { status: 400 },
@@ -44,6 +41,7 @@ export async function POST(request: NextRequest) {
     // ── 2. Consume the nonce (one-time use, expires after 5 min) ────────────
     const nonce = consumeNonce(walletAddress);
     if (!nonce) {
+      console.warn(`[wallet-auth] /api/auth/wallet-login nonce not found or expired for wallet: ${walletAddress.substring(0, 8)}...`);
       return NextResponse.json(
         { error: "Nonce not found or expired. Request a new nonce." },
         { status: 401 },
@@ -53,6 +51,7 @@ export async function POST(request: NextRequest) {
     // ── 3. Verify the signature ──────────────────────────────────────────────
     const isValid = verifyWalletSignature(walletAddress, nonce, signature);
     if (!isValid) {
+      console.warn(`[wallet-auth] /api/auth/wallet-login signature verification failed for wallet: ${walletAddress.substring(0, 8)}...`);
       return NextResponse.json(
         {
           error: "Signature verification failed. Wallet ownership not proved.",
@@ -74,6 +73,7 @@ export async function POST(request: NextRequest) {
       await supabase.auth.signInWithPassword({ email, password });
 
     if (!signInError && signInData.session) {
+      console.log(`[wallet-auth] /api/auth/wallet-login successful sign-in for wallet: ${walletAddress.substring(0, 8)}...`);
       return NextResponse.json(
         {
           session: signInData.session,
@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // First time — create the account
+    console.log(`[wallet-auth] /api/auth/wallet-login creating new user for wallet: ${walletAddress.substring(0, 8)}...`);
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
       {
         email,
@@ -102,13 +103,14 @@ export async function POST(request: NextRequest) {
     );
 
     if (signUpError) {
-      console.error("[wallet-auth] sign-up error:", signUpError.message);
+      console.error("[wallet-auth] /api/auth/wallet-login sign-up error:", signUpError.message);
       return NextResponse.json(
         { error: "Authentication failed. Please try again." },
         { status: 401 },
       );
     }
 
+    console.log(`[wallet-auth] /api/auth/wallet-login successful sign-up for wallet: ${walletAddress.substring(0, 8)}...`);
     return NextResponse.json(
       {
         session: signUpData.session,

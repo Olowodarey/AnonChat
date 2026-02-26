@@ -129,7 +129,7 @@ export function createWebSocketServer(port: number = 3001) {
         console.log(`[WebSocket] Message from ${clientId}:`, message.type)
 
         switch (message.type) {
-          case "auth":
+          case "auth": {
             // Authenticate user
             connection.userId = message.payload.userId
             connection.user = {
@@ -152,8 +152,9 @@ export function createWebSocketServer(port: number = 3001) {
               timestamp: Date.now(),
             })
             break
+          }
 
-          case "join_room":
+          case "join_room": {
             const roomId = message.payload.roomId
             const userId = connection.userId
 
@@ -185,8 +186,9 @@ export function createWebSocketServer(port: number = 3001) {
               timestamp: Date.now(),
             })
             break
+          }
 
-          case "leave_room":
+          case "leave_room": {
             const leaveRoomId = message.payload.roomId
             const leaveUserId = connection.userId
 
@@ -203,8 +205,9 @@ export function createWebSocketServer(port: number = 3001) {
               })
             }
             break
+          }
 
-          case "send_message":
+          case "send_message": {
             const msgRoomId = message.payload.roomId
             const msgUserId = connection.userId
 
@@ -235,8 +238,9 @@ export function createWebSocketServer(port: number = 3001) {
 
             broadcastToRoom(msgRoomId, broadcastMessage)
             break
+          }
 
-          case "typing":
+          case "typing": {
             const typingRoomId = message.payload.roomId
 
             broadcastToRoom(typingRoomId, {
@@ -249,8 +253,9 @@ export function createWebSocketServer(port: number = 3001) {
               timestamp: Date.now(),
             })
             break
+          }
 
-          case "stop_typing":
+          case "stop_typing": {
             const stopTypingRoomId = message.payload.roomId
 
             broadcastToRoom(stopTypingRoomId, {
@@ -262,8 +267,9 @@ export function createWebSocketServer(port: number = 3001) {
               timestamp: Date.now(),
             })
             break
+          }
 
-          case "wallet_event":
+          case "wallet_event": {
             const walletAction = message.payload.action
             const walletAddress = message.payload.walletAddress
 
@@ -276,6 +282,7 @@ export function createWebSocketServer(port: number = 3001) {
               timestamp: Date.now(),
             })
             break
+          }
 
           case "pong":
             // Heartbeat pong response - no action needed

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -10,6 +10,7 @@ import {
 } from "@/components/presence-indicator";
 import ConnectWallet from "@/components/wallet-connector";
 import { RoomMembersDialog } from "@/components/room-members-dialog";
+import { ChatEmptyState } from "@/components/chat-empty-state";
 import { cn } from "@/lib/utils";
 import { getPublicKey, onDisconnect } from "@/app/stellar-wallet-kit";
 import {
@@ -25,6 +26,7 @@ import {
   Video,
   MoreVertical,
   Star,
+  Loader2,
 } from "lucide-react";
 import { calculateReputation, trackActivity } from "@/lib/reputation";
 import { CONFIG } from "@/lib/config";
@@ -34,7 +36,8 @@ import {
   useDebouncedTyping,
   type TypingIndicator,
 } from "@/lib/websocket/chat-hooks";
-import { useWebSocketSend } from "@/lib/websocket/hooks";
+import { useWebSocketSend, useWebSocketMessage } from "@/lib/websocket/hooks";
+import { WebSocketMessage } from "@/types/websocket";
 
 type ChatPreview = {
   id: string;
@@ -56,6 +59,22 @@ type ChatMessage = {
   status?: "sending" | "sent" | "delivered" | "read";
 };
 
+interface DBRoom {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  address?: string;
+  unread_count?: number;
+}
+
+interface DBMessage {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
 export default function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -64,84 +83,110 @@ export default function ChatPage() {
   const [walletConnected, setWalletConnected] = useState(false);
   const [currentPublicKey, setCurrentPublicKey] = useState<string | null>(null);
   const [reputationScore, setReputationScore] = useState(0);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState<Record<string, boolean>>({});
+  const [offsets, setOffsets] = useState<Record<string, number>>({});
+  const [messagesByChat, setMessagesByChat] = useState<Record<string, ChatMessage[]>>({});
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollPosRef = useRef<number>(0);
 
-  const [messagesByChat, setMessagesByChat] = useState<Record<string, ChatMessage[]>>({
-    "1": [
-      {
-        id: "m1",
-        author: "them",
-        text: "Hey, welcome to AnonChat 👋",
-        time: "14:20",
-        delivered: true,
-        read: true,
-      },
-      {
-        id: "m2",
-        author: "me",
-        text: "Love how clean this feels on desktop.",
-        time: "14:22",
-        delivered: false,
-        read: false,
-        status: "sending",
-      },
-      {
-        id: "m2b",
-        author: "me",
-        text: "Just sent another update.",
-        time: "14:23",
-        delivered: false,
-        read: false,
-        status: "sent",
-      },
-      {
-        id: "m2c",
-        author: "me",
-        text: "Let me know once it lands.",
-        time: "14:24",
-        delivered: true,
-        read: false,
-        status: "delivered",
-      },
-      {
-        id: "m2d",
-        author: "me",
-        text: "Seen it?",
-        time: "14:24",
-        delivered: true,
-        read: true,
-        status: "read",
-      },
-      {
-        id: "m3",
-        author: "them",
-        text: "Messages stay end‑to‑end encrypted here.",
-        time: "14:25",
-        delivered: true,
-        read: false,
-      },
-    ],
-    "2": [
-      {
-        id: "m4",
-        author: "them",
-        text: "New governance draft is live.",
-        time: "09:02",
-        delivered: true,
-        read: true,
-      },
-    ],
-    "3": [
-      {
-        id: "m5",
-        author: "me",
-        text: "Let’s catch up on the drop.",
-        time: "17:40",
-        delivered: true,
-        read: true,
-      },
-    ],
-  })
+  
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
+  const transformToChatMessage = useCallback((msg: DBMessage): ChatMessage => {
+    const time = new Date(msg.created_at).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+
+    return {
+      id: msg.id,
+      author: msg.user_id === currentUser?.id ? "me" : "them",
+      text: msg.content,
+      time,
+      delivered: true,
+      read: true,
+      status: "read",
+    };
+  }, [currentUser]);
+
+  const fetchHistoricalMessages = useCallback(async (roomId: string, isLoadMore = false) => {
+    if ((isLoadMore && isLoadingMore) || (!isLoadMore && isLoadingMessages)) return;
+
+    const limit = 20; 
+    const currentOffset = isLoadMore ? (offsets[roomId] || 0) : 0;
+
+    if (isLoadMore) setIsLoadingMore(true);
+    else setIsLoadingMessages(true);
+
+    try {
+      const res = await fetch(`/api/messages?room_id=${roomId}&limit=${limit}&offset=${currentOffset}`);
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      const newMessages = (data.messages || []).map(transformToChatMessage).reverse();
+
+      setMessagesByChat((prev: Record<string, ChatMessage[]>) => {
+        const existingMessages = isLoadMore ? (prev[roomId] || []) : [];
+        
+        const combined = isLoadMore
+          ? [...newMessages, ...existingMessages]
+          : newMessages;
+
+        const unique = combined.filter((msg: ChatMessage, index: number, self: ChatMessage[]) =>
+          index === self.findIndex((m: ChatMessage) => m.id === msg.id)
+        );
+
+        return {
+          ...prev,
+          [roomId]: unique
+        };
+      });
+
+      setOffsets((prev: Record<string, number>) => ({
+        ...prev,
+        [roomId]: currentOffset + newMessages.length
+      }));
+
+      setHasMoreMessages((prev: Record<string, boolean>) => ({
+        ...prev,
+        [roomId]: (data.messages || []).length === limit
+      }));
+
+     
+      if (isLoadMore && scrollContainerRef.current) {
+        const container = scrollContainerRef.current;
+        const oldHeight = container.scrollHeight;
+        const oldScrollTop = container.scrollTop;
+
+        
+        requestAnimationFrame(() => {
+          const newHeight = container.scrollHeight;
+          const heightDiff = newHeight - oldHeight;
+          container.scrollTop = oldScrollTop + heightDiff;
+        });
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch messages:", err);
+    } finally {
+      setIsLoadingMessages(false);
+      setIsLoadingMore(false);
+    }
+  }, [offsets, isLoadingMessages, isLoadingMore, transformToChatMessage]);
+
+ 
   // Update reputation score
   useEffect(() => {
     const updateScore = () => {
@@ -152,7 +197,33 @@ export default function ChatPage() {
     return () => window.removeEventListener("reputationUpdate", updateScore)
   }, [currentPublicKey])
 
-  // Sync wallet state properly
+  
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await fetch("/api/rooms");
+        const data = await res.json();
+        if (data.rooms) {
+          const mappedRooms: ChatPreview[] = data.rooms.map((r: DBRoom) => ({
+            id: r.id,
+            name: r.name,
+            address: r.address || (r.id.slice(0, 8) + "..."),
+            lastMessage: r.description || "No messages yet",
+            lastSeen: new Date(r.created_at).toLocaleDateString(),
+            unreadCount: r.unread_count || 0,
+            status: "online", // mock status
+          }));
+          setChats(mappedRooms);
+        }
+      } catch (err) {
+        console.error("Failed to fetch rooms:", err);
+      }
+    };
+    if (currentUser) {
+      fetchRooms();
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     const checkWallet = async () => {
       const address = await getPublicKey()
@@ -215,22 +286,32 @@ export default function ChatPage() {
   }
 
   const handleSelectChat = async (id: string) => {
-    setSelectedChatId(id)
+    setSelectedChatId(id);
     // update server and local unread count
-    await markRoomRead(id)
-    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
+    await markRoomRead(id);
+    setChats((prev: ChatPreview[]) => prev.map((c: ChatPreview) => (c.id === id ? { ...c, unreadCount: 0 } : c)));
+
+   
+    if (!messagesByChat[id] || id.length > 5) { 
+      fetchHistoricalMessages(id);
+    }
   }
 
-  // Listen for new room creation
+
   useEffect(() => {
-    const handleRoomCreated = (e: any) => {
-      const newRoom = e.detail
-      setChats(prev => [newRoom, ...prev])
-      setSelectedChatId(newRoom.id)
+    if (scrollContainerRef.current && !isLoadingMore) {
+      const container = scrollContainerRef.current;
+      container.scrollTop = container.scrollHeight;
     }
-    window.addEventListener("roomCreated", handleRoomCreated)
-    return () => window.removeEventListener("roomCreated", handleRoomCreated)
-  }, [])
+  }, [selectedChatId, messagesByChat, isLoadingMore]);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current || !selectedChatId || isLoadingMore || !hasMoreMessages[selectedChatId]) return;
+
+    if (scrollContainerRef.current.scrollTop < 50) {  
+      fetchHistoricalMessages(selectedChatId, true);
+    }
+  }, [selectedChatId, isLoadingMore, hasMoreMessages, fetchHistoricalMessages]);
 
   const handleSendMessage = () => {
     if (!inputMessage.trim() || !selectedChatId) return
@@ -246,16 +327,21 @@ export default function ChatPage() {
       status: "sent"
     }
 
-    setMessagesByChat(prev => ({
+    setMessagesByChat((prev: Record<string, ChatMessage[]>) => ({
       ...prev,
       [selectedChatId]: [...(prev[selectedChatId] || []), newMessage]
     }))
 
-    setChats(prev => prev.map(chat =>
+    setChats((prev: ChatPreview[]) => prev.map((chat: ChatPreview) =>
       chat.id === selectedChatId
         ? { ...chat, lastMessage: inputMessage, lastSeen: "Just now", unreadCount: 0 }
         : chat
     ))
+
+   
+    if (realtimeHandlers.sendMessage) {
+      realtimeHandlers.sendMessage(inputMessage);
+    }
 
     setInputMessage("")
     trackActivity(currentPublicKey, 'message')
@@ -279,13 +365,13 @@ export default function ChatPage() {
     if (!query.trim()) return chats;
     const q = query.toLowerCase();
     return chats.filter(
-      (c) =>
+      (c: ChatPreview) =>
         c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q),
     );
   }, [chats, query]);
 
   const selectedChat = selectedChatId
-    ? (chats.find((c) => c.id === selectedChatId) ?? null)
+    ? (chats.find((c: ChatPreview) => c.id === selectedChatId) ?? null)
     : null;
   const messages = selectedChat ? (messagesByChat[selectedChat.id] ?? []) : [];
 
@@ -312,11 +398,52 @@ export default function ChatPage() {
 
   // Other users typing (exclude current user)
   const otherUsersTyping = useMemo(
-    () => typingUsers.filter((u) => u.userId !== currentPublicKey),
+    () => (Array.from(typingUsers.values()) as TypingIndicator[]).filter((u: TypingIndicator) => u.userId !== currentPublicKey),
     [typingUsers, currentPublicKey],
   );
 
-  // Mock typing for dummy chat "1" (Anon Whisper) so the indicator is visible in the UI
+  
+  useWebSocketMessage("message", useCallback((msg: WebSocketMessage) => {
+    const payload = msg.payload as any;
+    if (payload.roomId) {
+      const isMe = payload.userId === currentPublicKey;
+      const time = new Date(payload.createdAt || Date.now()).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+
+      const incoming: ChatMessage = {
+        id: payload.id || Math.random().toString(36).substr(2, 9),
+        author: isMe ? "me" : "them",
+        text: payload.content,
+        time,
+        status: "read",
+        delivered: true,
+        read: true
+      };
+
+      setMessagesByChat((prev: Record<string, ChatMessage[]>) => {
+        const roomMsgs = prev[payload.roomId] || [];
+       
+        if (roomMsgs.some((m: ChatMessage) => m.id === incoming.id)) return prev;
+
+        return {
+          ...prev,
+          [payload.roomId]: [...roomMsgs, incoming]
+        };
+      });
+
+     
+      setChats((prev: ChatPreview[]) => prev.map((c: ChatPreview) =>
+        c.id === payload.roomId
+          ? { ...c, lastMessage: payload.content, lastSeen: "Just now" }
+          : c
+      ));
+    }
+  }, [currentPublicKey]));
+
+  
   const MOCK_TYPING_CHAT_ID = "1";
   const mockTypingUser: TypingIndicator = useMemo(
     () => ({
@@ -326,6 +453,7 @@ export default function ChatPage() {
     }),
     [],
   );
+
   const displayTypingUsers = useMemo(() => {
     const fromRealtime = otherUsersTyping;
     if (selectedChatId === MOCK_TYPING_CHAT_ID) {
@@ -418,7 +546,7 @@ export default function ChatPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                   placeholder="Search ENS or Wallet"
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-card text-sm border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 placeholder:text-muted-foreground/70 transition"
                 />
@@ -432,7 +560,7 @@ export default function ChatPage() {
                 </div>
               ) : (
                 <ul className="py-1">
-                  {filteredChats.map((chat) => {
+                  {filteredChats.map((chat: ChatPreview) => {
                     const isSelected = chat.id === selectedChatId
                     return (
                       <li key={chat.id}>
@@ -441,7 +569,7 @@ export default function ChatPage() {
                           className={cn(
                             "w-full px-3.5 py-2.5 flex gap-3 items-center text-left hover:bg-muted/10 transition cursor-pointer",
                             isSelected &&
-                              "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
+                            "bg-primary/5 border-l-2 border-primary/80 shadow-[0_0_0_1px_rgba(168,85,247,0.08)]",
                           )}
                         >
                           <div className="relative">
@@ -482,23 +610,7 @@ export default function ChatPage() {
 
           {/* Main chat area */}
           <section className="flex-1 flex flex-col bg-background min-w-0">
-            {!selectedChat && (
-              <div className="flex flex-1 items-center justify-center px-8">
-                <div className="flex flex-col items-center text-center gap-4 max-w-md">
-                  <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary border border-primary/20">
-                    <MessageCircle className="h-8 w-8" />
-                  </div>
-                  <div className="space-y-1">
-                    <h2 className="text-xl font-semibold tracking-tight">
-                      Open a chat to get started
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Pick a room from the left. Everything stays end‑to‑end encrypted.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            {!selectedChat && <ChatEmptyState />}
 
             {/* Conversation view */}
             {selectedChat && (
@@ -563,62 +675,79 @@ export default function ChatPage() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 bg-background">
-                  {messages.map((message) => {
-                    const isMine = message.author === "me";
-                    const status = getDeliveryStatus(message);
-                    return (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          "flex w-full",
-                          isMine ? "justify-end" : "justify-start",
-                        )}
-                      >
+                <div
+                  ref={scrollContainerRef}
+                  onScroll={handleScroll}
+                  className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 bg-background relative"
+                >
+                  {isLoadingMore && (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    </div>
+                  )}
+
+                  {isLoadingMessages && messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm">Loading secure messages...</p>
+                    </div>
+                  ) : (
+                    messages.map((message: ChatMessage) => {
+                      const isMine = message.author === "me";
+                      const status = getDeliveryStatus(message);
+                      return (
                         <div
+                          key={message.id}
                           className={cn(
-                            "max-w-[70%] rounded-2xl px-4 py-2.5 text-sm flex flex-col gap-1",
-                            isMine
-                              ? "bg-primary/10 text-foreground rounded-br-md"
-                              : "bg-card text-foreground rounded-bl-md border border-border/40",
+                            "flex w-full",
+                            isMine ? "justify-end" : "justify-start",
                           )}
                         >
-                          <span className="whitespace-pre-wrap break-words">
-                            {message.text}
-                          </span>
-                          <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground/90">
-                            <span>{message.time}</span>
-                            {isMine && (
-                              <span className="inline-flex items-center gap-1">
-                                {status === "sending" ? (
-                                  <Clock className="h-3 w-3 animate-pulse" />
-                                ) : status === "sent" ? (
-                                  <Check className="h-3 w-3" />
-                                ) : (
-                                  <CheckCheck
+                          <div
+                            className={cn(
+                              "max-w-[70%] rounded-2xl px-4 py-2.5 text-sm flex flex-col gap-1",
+                              isMine
+                                ? "bg-primary/10 text-foreground rounded-br-md"
+                                : "bg-card text-foreground rounded-bl-md border border-border/40",
+                            )}
+                          >
+                            <span className="whitespace-pre-wrap break-words">
+                              {message.text}
+                            </span>
+                            <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground/90">
+                              <span>{message.time}</span>
+                              {isMine && (
+                                <span className="inline-flex items-center gap-1">
+                                  {status === "sending" ? (
+                                    <Clock className="h-3 w-3 animate-pulse" />
+                                  ) : status === "sent" ? (
+                                    <Check className="h-3 w-3" />
+                                  ) : (
+                                    <CheckCheck
+                                      className={cn(
+                                        "h-3 w-3",
+                                        status === "read" && "text-green-400",
+                                      )}
+                                    />
+                                  )}
+                                  <span
                                     className={cn(
-                                      "h-3 w-3",
                                       status === "read" && "text-green-400",
                                     )}
-                                  />
-                                )}
-                                <span
-                                  className={cn(
-                                    status === "read" && "text-green-400",
-                                  )}
-                                >
-                                  {status === "read"
-                                    ? "Seen"
-                                    : status.charAt(0).toUpperCase() +
+                                  >
+                                    {status === "read"
+                                      ? "Seen"
+                                      : status.charAt(0).toUpperCase() +
                                       status.slice(1)}
+                                  </span>
                                 </span>
-                              </span>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
 
                 {/* Typing indicator */}
